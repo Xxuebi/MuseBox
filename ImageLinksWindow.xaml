@@ -1,0 +1,74 @@
+<Window x:Class="ScreenshotCollector.ImageLinksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="图片链接" Width="530" Height="346"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize"
+        Background="Transparent" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Foreground="{DynamicResource TextBrush}" UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="LinkInput" TargetType="TextBox">
+            <Setter Property="Height" Value="36" /><Setter Property="Padding" Value="10,0,34,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" /><Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+                <Border Background="{TemplateBinding Background}" CornerRadius="8" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="#6593A6" />
+                </Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="ClearLinkButton" TargetType="Button">
+            <Setter Property="Width" Value="26" /><Setter Property="Height" Value="26" />
+            <Setter Property="HorizontalAlignment" Value="Right" /><Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Border x:Name="Chrome" Background="Transparent" CornerRadius="6">
+                    <Path Width="11" Height="11" Stretch="Uniform" Stroke="{DynamicResource MutedTextBrush}" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,2 L12,12 M12,2 L2,12" />
+                </Border>
+                <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleBrush}" />
+                </Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="15" Padding="22,16">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="38" /><RowDefinition Height="*" /><RowDefinition Height="40" /></Grid.RowDefinitions>
+            <Grid Background="Transparent" MouseLeftButtonDown="OnHeaderDrag">
+                <TextBlock x:Name="LinksTitleText" Text="图片链接" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Width="30" Height="30" MinHeight="28" Padding="0" Content="✕"
+                        Style="{StaticResource ModernButton}" Click="OnCancelClick" />
+            </Grid>
+            <StackPanel Grid.Row="1" Margin="0,10,0,10">
+                <TextBlock Text="网页地址" Margin="0,0,0,6" />
+                <Grid>
+                    <TextBox x:Name="WebLinkInput" Style="{StaticResource LinkInput}" ToolTip="https://example.com" />
+                    <Button x:Name="ClearWebLinkButton" Style="{StaticResource ClearLinkButton}" Tag="WebLinkInput"
+                            ToolTip="清除网页地址" AutomationProperties.Name="清除网页地址" Click="OnClearLinkClick" />
+                </Grid>
+                <DockPanel Margin="0,15,0,6">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="选择文件" MinWidth="78" MinHeight="28" Padding="9,2" Margin="0,0,6,0"
+                                Style="{StaticResource ModernButton}" Click="OnBrowseFileClick" />
+                        <Button Content="选择文件夹" MinWidth="90" MinHeight="28" Padding="9,2"
+                                Style="{StaticResource ModernButton}" Click="OnBrowseFolderClick" />
+                    </StackPanel>
+                    <TextBlock Text="文件或文件夹" VerticalAlignment="Center" />
+                </DockPanel>
+                <Grid>
+                    <TextBox x:Name="FileLinkInput" Style="{StaticResource LinkInput}" ToolTip="自定义文件或文件夹的完整路径" />
+                    <Button x:Name="ClearFileLinkButton" Style="{StaticResource ClearLinkButton}" Tag="FileLinkInput"
+                            ToolTip="清除文件地址" AutomationProperties.Name="清除文件地址" Click="OnClearLinkClick" />
+                </Grid>
+                <TextBlock x:Name="LinkStatus" Visibility="Collapsed" FontSize="12" Foreground="{DynamicResource DangerTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="取消" MinWidth="78" Margin="0,0,10,0" Style="{StaticResource ModernButton}" Click="OnCancelClick" />
+                <Button Content="保存" MinWidth="88" Style="{StaticResource AccentButton}" Click="OnSaveClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

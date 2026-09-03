@@ -1,0 +1,10 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using Application = System.Windows.Application;
+global using Brush = System.Windows.Media.Brush;
+global using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+global using MouseEventArgs = System.Windows.Input.MouseEventArgs;
+global using Rectangle = System.Drawing.Rectangle;

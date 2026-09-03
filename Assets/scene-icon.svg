@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1024 1024"
+     width="1024"
+     height="1024"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">MuseBox · 场景文件</title>
+  <desc id="desc">透明背景上的折角文档，文档内包含极光蓝绿的灵感火花与两层场景轮廓。</desc>
+
+  <defs>
+    <linearGradient id="aurora-background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12345A"/>
+      <stop offset="0.5" stop-color="#0E647D"/>
+      <stop offset="1" stop-color="#11A59B"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.62" stop-color="#F4FFFC"/>
+      <stop offset="1" stop-color="#DDF7FF"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#78F0C8"/>
+      <stop offset="1" stop-color="#3799FF"/>
+    </linearGradient>
+    <linearGradient id="far-layer" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#78F0C8"/>
+      <stop offset="1" stop-color="#42D8CE"/>
+    </linearGradient>
+    <linearGradient id="near-layer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#47C8E8"/>
+      <stop offset="1" stop-color="#3799FF"/>
+    </linearGradient>
+    <linearGradient id="scene-spark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#47EAD6"/>
+      <stop offset="0.52" stop-color="#77F3B5"/>
+      <stop offset="1" stop-color="#D7FF72"/>
+    </linearGradient>
+    <clipPath id="scene-preview-clip">
+      <rect x="254" y="390" width="516" height="366" rx="66"/>
+    </clipPath>
+  </defs>
+
+  <g id="file-symbol">
+    <!-- Bold document silhouette; the large fold remains visible at 16 px. -->
+    <path id="document"
+          d="M238 120H622L830 328V846C830 886 798 918 758 918H238C198 918 166 886 166 846V192C166 152 198 120 238 120Z"
+          fill="url(#paper)"
+          stroke="#144B68"
+          stroke-width="20"
+          stroke-linejoin="round"
+          paint-order="stroke fill"/>
+
+    <path id="folded-corner"
+          d="M622 120V270C622 302 648 328 680 328H830Z"
+          fill="url(#fold)"/>
+
+    <!-- A dark, high-contrast scene thumbnail distinguishes this from a generic file. -->
+    <g id="scene-preview" clip-path="url(#scene-preview-clip)">
+      <rect x="254" y="390" width="516" height="366" rx="66" fill="url(#aurora-background)"/>
+
+      <path id="far-scene-layer"
+            d="M234 674C322 566 401 562 486 638C549 694 622 553 790 514V780H234Z"
+            fill="url(#far-layer)"/>
+
+      <path id="near-scene-layer"
+            d="M234 724C343 612 438 630 516 692C590 751 661 648 790 606V780H234Z"
+            fill="url(#near-layer)"/>
+
+      <path id="spark"
+            d="M614 418C608 418 604 423 602 430C592 474 563 500 513 515C503 518 497 526 497 535C497 544 503 552 513 555C558 568 586 590 602 608C606 617 622 617 626 608C642 590 670 568 715 555C725 552 731 544 731 535C731 526 725 518 715 515C665 500 636 474 626 430C624 423 620 418 614 418Z"
+            fill="url(#scene-spark)"/>
+    </g>
+  </g>
+</svg>

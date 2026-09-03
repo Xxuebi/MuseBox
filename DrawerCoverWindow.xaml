@@ -1,0 +1,116 @@
+<Window x:Class="ScreenshotCollector.DrawerCoverWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置抽屉封面" Width="680" Height="614" WindowStyle="None" AllowsTransparency="True"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="Transparent" Foreground="{DynamicResource TextBrush}" PreviewKeyDown="OnEditorKeyDown">
+    <Window.Resources>
+        <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style x:Key="CoverSlider" TargetType="Slider">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="IsMoveToPointEnabled" Value="True" />
+            <Setter Property="SmallChange" Value=".05" />
+            <Setter Property="LargeChange" Value=".25" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+                <Grid>
+                    <Border Height="4" Margin="7,0" Background="{DynamicResource ControlBorderBrush}" CornerRadius="2" VerticalAlignment="Center" />
+                    <Track x:Name="PART_Track">
+                        <Track.DecreaseRepeatButton><RepeatButton Opacity="0" Focusable="False" Command="Slider.DecreaseLarge" /></Track.DecreaseRepeatButton>
+                        <Track.IncreaseRepeatButton><RepeatButton Opacity="0" Focusable="False" Command="Slider.IncreaseLarge" /></Track.IncreaseRepeatButton>
+                        <Track.Thumb><Thumb Width="15" Height="15"><Thumb.Template>
+                            <ControlTemplate TargetType="Thumb"><Ellipse Fill="White" Stroke="#6593A6" StrokeThickness="1.5" /></ControlTemplate>
+                        </Thumb.Template></Thumb></Track.Thumb>
+                    </Track>
+                </Grid>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Border x:Name="CoverChrome" Margin="10" Padding="22,18" CornerRadius="16"
+            Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
+        <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity=".17" /></Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32" /><RowDefinition Height="44" /><RowDefinition Height="*" />
+                <RowDefinition Height="42" /><RowDefinition Height="46" />
+            </Grid.RowDefinitions>
+            <DockPanel MouseLeftButtonDown="OnHeaderDrag">
+                <Button DockPanel.Dock="Right" Width="28" Height="28" Padding="0" Content="×"
+                        Style="{StaticResource ModernButton}" BorderThickness="0" Background="Transparent"
+                        ToolTip="关闭" Click="OnCancelClick" />
+                <TextBlock Text="设置抽屉封面" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </DockPanel>
+            <DockPanel Grid.Row="1" Margin="0,6,0,6">
+                <Button DockPanel.Dock="Right" Content="更换图片" Style="{StaticResource ModernButton}"
+                        MinWidth="94" MinHeight="0" Padding="12,3" Click="OnChooseImageClick" />
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="CoverFlipX" Width="34" Margin="0,0,5,0" Style="{StaticResource IconButton}"
+                            ToolTip="水平镜像" Tag="flipX" Click="OnTransformClick">
+                        <Path Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                              Data="M10,1 V19 M7,3 L1,17 H7 Z M13,3 L19,17 H13 Z" />
+                    </Button>
+                    <Button x:Name="CoverFlipY" Width="34" Margin="0,0,5,0" Style="{StaticResource IconButton}"
+                            ToolTip="垂直镜像" Tag="flipY" Click="OnTransformClick">
+                        <Path Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                              Data="M1,10 H19 M3,7 L17,1 V7 Z M3,13 L17,19 V13 Z" />
+                    </Button>
+                    <Border Width="1" Margin="5,5,10,5" Background="{DynamicResource ControlBorderBrush}" />
+                    <Button x:Name="CoverRotateLeft" Width="34" Margin="0,0,5,0" Style="{StaticResource IconButton}"
+                            ToolTip="逆时针旋转 90°" Tag="left" Click="OnTransformClick">
+                        <Path Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.7"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M3,8 A8,8 0 1 1 4,17 M3,2 V8 H9" />
+                    </Button>
+                    <Button x:Name="CoverRotateRight" Width="34" Margin="0,0,5,0" Style="{StaticResource IconButton}"
+                            ToolTip="顺时针旋转 90°" Tag="right" Click="OnTransformClick">
+                        <Path Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.7"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M17,8 A8,8 0 1 0 16,17 M17,2 V8 H11" />
+                    </Button>
+                    <Button x:Name="CoverReset" Width="34" Style="{StaticResource IconButton}" ToolTip="重置"
+                            Tag="reset" Click="OnTransformClick">
+                        <Path Width="20" Height="20" Stretch="Uniform" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.7"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M3,4 V10 H9 M3,10 C4,0 19,1 19,11 C19,20 7,21 4,15" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+            <Border Grid.Row="2" Background="{DynamicResource SubtleBrush}" CornerRadius="12" ClipToBounds="True">
+                <Canvas x:Name="CoverWorkspace" Background="Transparent" ClipToBounds="True" Cursor="SizeAll"
+                        SizeChanged="OnWorkspaceSizeChanged" MouseLeftButtonDown="OnPanStart"
+                        MouseMove="OnPanMove" MouseLeftButtonUp="OnPanEnd" LostMouseCapture="OnPanLost"
+                        MouseWheel="OnZoomWheel">
+                    <Image x:Name="CoverImage" IsHitTestVisible="False" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <Path x:Name="CoverMask" Fill="#8A000000" IsHitTestVisible="False" />
+                    <Border x:Name="CoverFrame" BorderBrush="White" BorderThickness="2" IsHitTestVisible="False">
+                        <Border.Effect><DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity=".25" /></Border.Effect>
+                        <Grid Opacity=".35">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                            <Border Grid.Column="1" Grid.RowSpan="3" BorderBrush="White" BorderThickness="1,0" />
+                            <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="White" BorderThickness="0,1" />
+                        </Grid>
+                    </Border>
+                </Canvas>
+            </Border>
+            <DockPanel Grid.Row="3" Margin="0,8,0,4">
+                <TextBlock DockPanel.Dock="Left" Text="缩放" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock x:Name="CoverZoomText" DockPanel.Dock="Right" Width="50" TextAlignment="Right" VerticalAlignment="Center" />
+                <Slider x:Name="CoverZoom" Minimum="1" Maximum="8" Value="1" VerticalAlignment="Center" Style="{StaticResource CoverSlider}"
+                        ValueChanged="OnZoomChanged" />
+            </DockPanel>
+            <DockPanel Grid.Row="4" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <Button Content="取消" MinWidth="74" Margin="0,0,10,0" Style="{StaticResource ModernButton}" Click="OnCancelClick" />
+                    <Button x:Name="CoverConfirm" Content="确定" MinWidth="82" Style="{StaticResource AccentButton}" Click="OnConfirmClick" />
+                </StackPanel>
+                <TextBlock Text="拖动移动图片 · 滚轮缩放&#10;裁切框与抽屉封面比例一致" FontSize="11"
+                           Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+            </DockPanel>
+        </Grid>
+    </Border>
+</Window>

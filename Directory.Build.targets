@@ -1,0 +1,8 @@
+<Project>
+  <!-- WPF's temporary local-type assembly must exclude the nested test project too. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'MuseBox' Or $(MSBuildProjectName.EndsWith('_wpftmp'))">
+    <Compile Remove="MuseBox.Tests\**\*.cs" />
+    <Page Remove="MuseBox.Tests\**\*.xaml" />
+    <None Remove="MuseBox.Tests\**\*" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
+    <AssemblyName>MuseBox</AssemblyName>
+    <AssemblyTitle>MuseBox</AssemblyTitle>
+    <Product>MuseBox</Product>
+    <Description>MuseBox 图片收集与自由画板工具</Description>
+    <RootNamespace>ScreenshotCollector</RootNamespace>
+    <Version>1.1.15</Version>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyVersion>1.1.15.0</AssemblyVersion>
+    <FileVersion>1.1.15.0</FileVersion>
+    <DefaultItemExcludes>$(DefaultItemExcludes);MuseBox.ThumbnailProvider\**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\app-icon.ico" />
+    <Resource Include="Assets\immersive-collection-icon.png" />
+    <Content Include="Assets\scene-icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+  </ItemGroup>
+  <Target Name="BuildThumbnailProvider" BeforeTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectDirectory)\MuseBox.ThumbnailProvider\MuseBox.ThumbnailProvider.csproj"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration);Platform=AnyCPU" />
+  </Target>
+  <Target Name="CopyThumbnailProviderAfterBuild" AfterTargets="Build">
+    <ItemGroup>
+      <ThumbnailProviderOutput Include="$(MSBuildProjectDirectory)\MuseBox.ThumbnailProvider\bin\$(Configuration)\net48\MuseBox.ThumbnailProvider.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ThumbnailProviderOutput)"
+          DestinationFolder="$(OutDir)ThumbnailProvider"
+          SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyThumbnailProviderAfterPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <ThumbnailProviderPublish Include="$(MSBuildProjectDirectory)\MuseBox.ThumbnailProvider\bin\$(Configuration)\net48\MuseBox.ThumbnailProvider.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ThumbnailProviderPublish)"
+          DestinationFolder="$(PublishDir)ThumbnailProvider"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

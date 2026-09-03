@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1024 1024"
+     width="1024"
+     height="1024"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">MuseBox · 极光蓝绿</title>
+  <desc id="desc">一枚四角灵感火花悬浮在宽大的收集容器上方，针对 Windows 任务栏小尺寸优化。</desc>
+
+  <defs>
+    <linearGradient id="aurora-background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12345A"/>
+      <stop offset="0.5" stop-color="#0E647D"/>
+      <stop offset="1" stop-color="#11A59B"/>
+    </linearGradient>
+    <linearGradient id="pearl-shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.58" stop-color="#F4FFFC"/>
+      <stop offset="1" stop-color="#DDF7FF"/>
+    </linearGradient>
+    <linearGradient id="collector-flow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#78F0C8"/>
+      <stop offset="0.48" stop-color="#39D7CD"/>
+      <stop offset="1" stop-color="#3799FF"/>
+    </linearGradient>
+    <linearGradient id="inspiration-spark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#47EAD6"/>
+      <stop offset="0.52" stop-color="#77F3B5"/>
+      <stop offset="1" stop-color="#D7FF72"/>
+    </linearGradient>
+    <clipPath id="collector-clip">
+      <path d="M165 464C165 421 200 388 243 388C338 388 421 422 486 486C501 501 523 501 538 486C603 422 686 388 781 388C824 388 859 421 859 464V708C859 822 766 916 652 916H372C258 916 165 822 165 708Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Keep this group for the application icon. Remove it for a symbol-only logo. -->
+  <g id="app-tile">
+    <rect x="24" y="24" width="976" height="976" rx="212" fill="url(#aurora-background)"/>
+  </g>
+
+  <!-- Reusable logo mark. Its silhouette is optimized for 16–32 px display. -->
+  <g id="mark">
+    <path id="collector-shell"
+          d="M165 464C165 421 200 388 243 388C338 388 421 422 486 486C501 501 523 501 538 486C603 422 686 388 781 388C824 388 859 421 859 464V708C859 822 766 916 652 916H372C258 916 165 822 165 708Z"
+          fill="url(#pearl-shell)"/>
+
+    <path id="collector-opening"
+          d="M211 388C320 376 414 412 486 483C501 498 523 498 538 483C610 412 704 376 813 388C779 445 721 481 650 501C590 518 550 568 550 631V916H474V631C474 568 434 518 374 501C303 481 245 445 211 388Z"
+          fill="url(#collector-flow)"
+          clip-path="url(#collector-clip)"/>
+
+    <path id="spark"
+          d="M512 72C503 72 497 79 495 89C475 177 417 230 318 260C302 265 291 278 291 293C291 308 302 321 318 326C407 353 463 395 494 430C500 445 524 445 530 430C561 395 617 353 706 326C722 321 733 308 733 293C733 278 722 265 706 260C607 230 549 177 529 89C527 79 521 72 512 72Z"
+          fill="url(#inspiration-spark)"/>
+  </g>
+</svg>

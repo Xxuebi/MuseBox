@@ -1,0 +1,337 @@
+<Window x:Class="ScreenshotCollector.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ScreenshotCollector.Controls"
+        Title="MuseBox"
+        Icon="Assets/app-icon.ico"
+        Width="360"
+        MinWidth="340"
+        Height="500"
+        MinHeight="280"
+        SizeToContent="Manual"
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        Background="Transparent"
+        Foreground="{DynamicResource TextBrush}"
+        UseLayoutRounding="True">
+    <Window.Resources>
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TitleGlyph" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="DrawerScrollBar" TargetType="ScrollBar">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template"><Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent">
+                        <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                                    <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template><ControlTemplate TargetType="Thumb">
+                                        <Border x:Name="Grip" Background="{DynamicResource MutedTextBrush}" CornerRadius="3" Margin="3,0,1,0" />
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Grip" Property="Background" Value="#929CA6" /></Trigger>
+                                            <Trigger Property="IsDragging" Value="True"><Setter TargetName="Grip" Property="Background" Value="#748594" /></Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate></Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                                    <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value></Setter>
+        </Style>
+
+        <Style x:Key="DrawerActionButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template"><Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Surface" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Surface" Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Surface" Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value></Setter>
+        </Style>
+        <DataTemplate x:Key="DrawerTemplate">
+            <Border x:Name="DrawerRoot" Tag="{Binding Id}" Background="{DynamicResource CardBrush}" Opacity="{Binding CardOpacity}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="6" ClipToBounds="True">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                    <Button x:Name="DrawerCollectButton" Margin="0,0,0,4" Padding="5"
+                            Opacity="{Binding CollectionAccessoryOpacity, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Style="{StaticResource DrawerActionButton}" Background="{DynamicResource SubtleBrush}" Tag="{Binding Id}"
+                            ToolTip="点击收集剪贴板图片；也可拖入图片文件" AutomationProperties.Name="收集图片"
+                            Click="OnDrawerCollectClick" AllowDrop="True" DragOver="OnDrawerDragOver" Drop="OnDrawerDrop">
+                        <Grid ClipToBounds="True">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding EmptyHintVisibility}">
+                                <Path Width="22" Height="22" Stroke="{DynamicResource MutedTextBrush}" StrokeThickness="1.4" StrokeLineJoin="Round"
+                                      Data="M3,2 H19 Q21,2 21,4 V18 Q21,20 19,20 H3 Q1,20 1,18 V4 Q1,2 3,2 M4,16 L8,11 L12,15 L15,12 L18,16 M7,6 A1,1 0 1 1 7,8 A1,1 0 1 1 7,6" />
+                                <TextBlock Text="点击收集" FontSize="11" Margin="0,6,0,0" Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
+                            <Image Stretch="{Binding ThumbnailStretch}" Source="{Binding Thumbnail}" IsHitTestVisible="False" />
+                            <Canvas x:Name="AnimationLayer" IsHitTestVisible="False" ClipToBounds="True" />
+                        </Grid>
+                    </Button>
+                    <Grid x:Name="DrawerFooter" Grid.Row="1" ClipToBounds="True">
+                        <TextBlock x:Name="DrawerSceneMarker" Panel.ZIndex="2" Text="•" Foreground="#C7781B" FontSize="13" Margin="0,0,35,0"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" IsHitTestVisible="False"
+                                   Visibility="{Binding SceneMarkerVisibility}" />
+                        <Grid Visibility="{Binding DisplayModeVisibility}">
+                            <Button x:Name="DrawerOpenButton" Tag="{Binding Id}" ToolTip="{Binding OpenToolTip}"
+                                    Style="{StaticResource DrawerActionButton}" Background="{DynamicResource SubtleBrush}" Padding="4,2,46,2" Click="OnOpenBoardClick"
+                                    AllowDrop="{Binding IsCollectionMode, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    DragOver="OnDrawerDragOver" Drop="OnDrawerDrop"
+                                    AutomationProperties.Name="{Binding OpenToolTip}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="DrawerLetter" Margin="0,0,8,0" VerticalAlignment="Center"
+                                               Visibility="{Binding LetterVisibility}" FontSize="18" FontWeight="SemiBold" Text="{Binding Id}" />
+                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12" Text="{Binding DisplayName}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </Button>
+                            <Button x:Name="DrawerSettingsButton" Width="30" Height="26" Margin="0,0,4,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Style="{StaticResource IconButton}" Tag="{Binding Id}" ToolTip="抽屉菜单 · 长按拖动排序"
+                                    AutomationProperties.Name="抽屉菜单"
+                                    PreviewMouseLeftButtonDown="OnDrawerSettingsPress"
+                                    PreviewMouseMove="OnDrawerSettingsPointerMove" Click="OnDrawerSettingsClick">
+                                <Grid Width="23" Height="14" IsHitTestVisible="False">
+                                    <Path x:Name="DrawerMenuLines" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.4"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M1,3 H12 M1,7 H12 M1,11 H12" />
+                                    <Path x:Name="DrawerMenuArrow" Fill="{DynamicResource TextBrush}" Data="M16,5 L22,5 L19,9 Z" />
+                                </Grid>
+                            </Button>
+                        </Grid>
+                        <Canvas x:Name="CompactCollectionFeedback" Panel.ZIndex="3" IsHitTestVisible="False" ClipToBounds="True" />
+                        <Grid Visibility="{Binding EditModeVisibility}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /></Grid.ColumnDefinitions>
+                            <Border Margin="0,3,2,3" Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1" CornerRadius="6">
+                                <TextBox x:Name="DrawerNameInput" Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                         Tag="{Binding Id}" MaxLength="30" Padding="4,0" BorderThickness="0" Background="Transparent"
+                                         VerticalContentAlignment="Center" LostKeyboardFocus="OnDrawerNameLostFocus"
+                                         PreviewKeyDown="OnDrawerNameKeyDown" />
+                            </Border>
+                            <Button Grid.Column="1" Width="24" Height="26" VerticalAlignment="Center"
+                                    Style="{StaticResource IconButton}" Tag="{Binding Id}" ToolTip="完成重命名" Content="✓" Click="OnSaveDrawerNameClick" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsCollectionMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter TargetName="DrawerCollectButton" Property="IsHitTestVisible" Value="False" />
+                    <Setter TargetName="DrawerOpenButton" Property="Padding" Value="6,2,46,2" />
+                    <Setter TargetName="DrawerOpenButton" Property="ToolTip" Value="沉浸收集：点击收集剪贴板图片，也可拖入图片文件" />
+                    <Setter TargetName="DrawerOpenButton" Property="AutomationProperties.Name" Value="收集图片到此抽屉" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding CollectionProgress, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
+                    <Setter TargetName="DrawerCollectButton" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="DrawerFooter" Property="Grid.Row" Value="0" />
+                    <Setter TargetName="DrawerFooter" Property="Grid.RowSpan" Value="2" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding CollectionTransitioning, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                    <Setter TargetName="DrawerRoot" Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Border x:Name="MainChrome" Background="{DynamicResource PageBrush}"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="1" CornerRadius="16" ClipToBounds="True"
+            PreviewMouseLeftButtonDown="OnWindowChromeMouseDown">
+        <Grid Margin="12,8,12,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38" />
+                <RowDefinition Height="42" />
+                <RowDefinition Height="*" />
+                <RowDefinition x:Name="AddDrawerRow" Height="42" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="30" />
+                </Grid.ColumnDefinitions>
+                <Grid VerticalAlignment="Center" Margin="0,0,4,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Text="MuseBox" />
+                    <TextBlock x:Name="HotkeyText" Grid.Column="1" Margin="8,1,0,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                               FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                </Grid>
+                <Button x:Name="PinButton" Grid.Column="1" Style="{StaticResource IconButton}"
+                        ToolTip="窗口置顶" Click="OnTopmostClick">
+                    <TextBlock Style="{StaticResource TitleGlyph}" Text="&#xE718;" />
+                </Button>
+                <Button x:Name="MainMinimizeButton" Grid.Column="2" Style="{StaticResource IconButton}"
+                        ToolTip="最小化" Click="OnMainMinimizeClick">
+                    <TextBlock Style="{StaticResource TitleGlyph}" Text="&#xE921;" />
+                </Button>
+                <Button x:Name="MainCloseButton" Grid.Column="3" Style="{StaticResource IconButton}"
+                        ToolTip="收进系统托盘" Click="OnHideClick">
+                    <TextBlock Style="{StaticResource TitleGlyph}" Text="&#xE8BB;" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="62" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="32" />
+                    <ColumnDefinition Width="32" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="ScreenshotButton" Style="{StaticResource AccentButton}" Margin="0,0,7,0"
+                        Padding="6,2" FontSize="12" Content="截图"
+                        ToolTip="立即框选截图" Click="OnScreenshotClick" />
+                <Border Grid.Column="1" Padding="7,4" Background="{DynamicResource SubtleBrush}" CornerRadius="7">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="26" />
+                        </Grid.ColumnDefinitions>
+                        <Ellipse x:Name="StatusDot" Width="7" Height="7" Margin="0,0,7,0"
+                                 VerticalAlignment="Center" Fill="#7A7A7A" />
+                        <TextBlock x:Name="StatusText" Grid.Column="1" VerticalAlignment="Center"
+                                   FontSize="10.5" Foreground="{DynamicResource MutedTextBrush}"
+                                   Text="正在初始化…" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                        <Button x:Name="ClearClipboardButton" Grid.Column="2"
+                                Width="24" Height="24" Margin="2,0,0,0"
+                                Visibility="Collapsed" Style="{StaticResource IconButton}"
+                                ToolTip="清除剪贴板图片" Content="×"
+                                Click="OnClearClipboardClick" />
+                    </Grid>
+                </Border>
+                <Button x:Name="CollectionModeButton" Grid.Column="2" Style="{StaticResource IconButton}"
+                        ToolTip="开启沉浸收集" AutomationProperties.Name="开启沉浸收集" Click="OnCollectionModeClick">
+                    <Viewbox Width="20" Height="20" IsHitTestVisible="False">
+                        <Grid Width="24" Height="24">
+                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M12,1 C12.8,5 15,7.2 19,8 C15,8.8 12.8,11 12,15 C11.2,11 9,8.8 5,8 C9,7.2 11.2,5 12,1 Z" />
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.8" StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Data="M5,16 V19.2 C5,20.2 5.8,21 6.8,21 H17.2 C18.2,21 19,20.2 19,19.2 V16 M5,16 C7.8,15.6 10.1,16.2 12,18 C13.9,16.2 16.2,15.6 19,16" />
+                        </Grid>
+                    </Viewbox>
+                </Button>
+                <Button x:Name="SettingsButton" Grid.Column="3" Style="{StaticResource IconButton}"
+                        ToolTip="设置" Click="OnSettingsClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE713;" />
+                </Button>
+            </Grid>
+
+            <ScrollViewer x:Name="DrawerScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" PanningMode="VerticalOnly">
+                <ScrollViewer.Template><ControlTemplate TargetType="ScrollViewer">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Orientation="Vertical"
+                                   Style="{StaticResource DrawerScrollBar}" Minimum="0"
+                                   Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}"
+                                   Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                    </Grid>
+                </ControlTemplate></ScrollViewer.Template>
+                <ItemsControl x:Name="DrawerList" ItemTemplate="{StaticResource DrawerTemplate}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate>
+                        <controls:AdaptiveDrawerPanel CollectionProgress="{Binding CollectionProgress, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+            <Canvas x:Name="DrawerDragLayer" Grid.Row="2" Panel.ZIndex="20"
+                    IsHitTestVisible="False" ClipToBounds="True" />
+            <Grid x:Name="AddDrawerHost" Grid.Row="3" ClipToBounds="True"
+                  Opacity="{Binding CollectionAccessoryOpacity, RelativeSource={RelativeSource AncestorType=Window}}">
+            <Button x:Name="AddDrawerButton" Margin="0,8,0,0" MinHeight="30"
+                    Style="{StaticResource DrawerActionButton}" Background="Transparent" Padding="4"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    ToolTip="新建一个独立抽屉" Click="OnAddDrawerClick">
+                <StackPanel Orientation="Horizontal">
+                    <Path Width="13" Height="13" Stroke="{DynamicResource MutedTextBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round" Data="M6.5,1 V12 M1,6.5 H12" Margin="0,0,7,0" />
+                    <TextBlock Text="新建抽屉" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" />
+                </StackPanel>
+            </Button>
+            </Grid>
+            <Path Grid.Row="2" Grid.RowSpan="2" Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                  Margin="0,0,-7,-7" IsHitTestVisible="False" Stroke="{DynamicResource MutedTextBrush}" StrokeThickness="1.1"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,9 L9,2 M6,9 L9,6" />
+        </Grid>
+    </Border>
+</Window>
