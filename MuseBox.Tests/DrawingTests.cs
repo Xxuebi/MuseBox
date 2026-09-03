@@ -255,7 +255,7 @@ internal static partial class Program
 
     private static void DrawingToolbarLayout() => WithDrawingBoard((window, _) =>
     {
-        Equal("1.1.15", typeof(BoardWindow).Assembly
+        Equal("1.1.16", typeof(BoardWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion);
         True(!Enum.GetNames<BoardToolMode>().Contains("Highlighter"), "仍然有第二种笔工具");
         CallDrawing(window, "SetToolMode", BoardToolMode.Pen);

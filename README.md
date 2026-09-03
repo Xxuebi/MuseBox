@@ -7,7 +7,7 @@
 
 MuseBox 是一款面向 Windows 的本地灵感收集与视觉整理工具。它可以快速接收截图、剪贴板图片和本地文件，并通过抽屉、自由画板、文字、绘制、组合与图层，把零散素材整理成可继续编辑的视觉场景。
 
-> 当前版本：1.1.15 · Windows 10/11 · .NET 8 WPF
+> 当前版本：1.1.16 · Windows 10/11 · .NET 8 WPF
 
 ## 核心功能
 
@@ -78,10 +78,20 @@ dotnet publish .\MuseBox.csproj -p:PublishProfile=win-x64
 
 ```text
 MuseBox/
+├─ Application/            应用级场景与托盘逻辑
 ├─ Assets/                 图标与界面资源
 ├─ Controls/               自定义 WPF 控件
+├─ docs/                   格式与验证文档
+├─ Installer/              Inno Setup 安装脚本
 ├─ Models/                 数据模型
 ├─ Services/               剪贴板、场景、图层等服务
+├─ Views/
+│  ├─ Main/                主窗口与抽屉交互
+│  ├─ Board/               画板窗口及功能分片
+│  ├─ Editors/             图片、链接与颜色编辑器
+│  ├─ Settings/            全局及画板设置
+│  ├─ Dialogs/             通用对话框
+│  └─ Overlays/            截图、取色与封面覆盖层
 ├─ MuseBox.Tests/          自动化测试
 ├─ MuseBox.ThumbnailProvider/  场景缩略图扩展
 ├─ MuseBox.csproj          主程序项目

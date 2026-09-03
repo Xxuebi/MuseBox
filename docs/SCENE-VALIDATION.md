@@ -36,4 +36,4 @@
     dotnet run --project MuseBox.Tests/MuseBox.Tests.csproj -c Release
     dotnet run --project MuseBox.Tests/MuseBox.Tests.csproj -c Release -- 场景
     dotnet publish MuseBox.csproj -c Release -p:PublishProfile=win-x64
-    .tools/InnoSetup/ISCC.exe Installer/InspirationCollector.iss
+    .tools/InnoSetup/ISCC.exe Installer/MuseBox.iss

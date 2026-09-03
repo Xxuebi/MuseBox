@@ -531,7 +531,8 @@
                             BorderBrush="{StaticResource ControlBorderBrush}"
                             BorderThickness="1" CornerRadius="10">
                         <StackPanel HorizontalAlignment="Center">
-                            <Image x:Name="AboutAppIcon" Width="64" Height="64" Source="Assets/app-icon.ico" Stretch="Uniform" />
+                            <Image x:Name="AboutAppIcon" Width="64" Height="64"
+                                   Source="/MuseBox;component/Assets/app-icon.ico" Stretch="Uniform" />
                             <TextBlock x:Name="AboutProductName" Margin="0,14,0,0" HorizontalAlignment="Center"
                                        FontSize="20" FontWeight="SemiBold" Text="MuseBox" />
                             <TextBlock x:Name="AboutChineseSubtitle" Margin="0,3,0,0" HorizontalAlignment="Center"

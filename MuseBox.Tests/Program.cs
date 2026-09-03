@@ -605,7 +605,7 @@ internal static partial class Program
             ((System.Windows.Controls.TextBlock)window.FindName("AboutChineseSubtitle")).Text == "灵感收集器",
             "关于页没有以 MuseBox 为主标题并保留中文副标题");
         var versionText = (System.Windows.Controls.TextBlock)window.FindName("AppVersionText");
-        True(versionText.Text.Contains("1.1.15", StringComparison.Ordinal),
+        True(versionText.Text.Contains("1.1.16", StringComparison.Ordinal),
             "关于栏目没有显示当前程序集版本");
         window.ApplyTemplate();
         var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(window);

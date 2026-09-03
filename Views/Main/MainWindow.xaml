@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ScreenshotCollector.Controls"
         Title="MuseBox"
-        Icon="Assets/app-icon.ico"
+        Icon="/MuseBox;component/Assets/app-icon.ico"
         Width="360"
         MinWidth="340"
         Height="500"

@@ -14,11 +14,11 @@
     <Product>MuseBox</Product>
     <Description>MuseBox 图片收集与自由画板工具</Description>
     <RootNamespace>ScreenshotCollector</RootNamespace>
-    <Version>1.1.15</Version>
+    <Version>1.1.16</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <AssemblyVersion>1.1.15.0</AssemblyVersion>
-    <FileVersion>1.1.15.0</FileVersion>
+    <AssemblyVersion>1.1.16.0</AssemblyVersion>
+    <FileVersion>1.1.16.0</FileVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);MuseBox.ThumbnailProvider\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:services="clr-namespace:ScreenshotCollector.Services"
         Title="画板"
-        Icon="Assets/app-icon.ico"
+        Icon="/MuseBox;component/Assets/app-icon.ico"
         Width="1100" Height="760" MinWidth="700" MinHeight="360"
         WindowStyle="None" ResizeMode="CanResizeWithGrip"
         AllowsTransparency="True"
