@@ -1,5 +1,11 @@
 # MuseBox
 
+<p align="center">
+  <img src="Assets/app-icon-preview.png" width="112" alt="MuseBox 应用图标" />
+</p>
+
+<p align="center"><strong>把零散灵感收进抽屉，再放到自由画板上继续整理。</strong></p>
+
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-WPF-5C2D91)
@@ -7,7 +13,33 @@
 
 MuseBox 是一款面向 Windows 的本地灵感收集与视觉整理工具。它可以快速接收截图、剪贴板图片和本地文件，并通过抽屉、自由画板、文字、绘制、组合与图层，把零散素材整理成可继续编辑的视觉场景。
 
-> 当前版本：1.1.16 · Windows 10/11 · .NET 8 WPF
+> 当前版本：1.1.21 · Windows 10/11 · .NET 8 WPF
+
+![MuseBox 收集与画板生成式界面示意](docs/images/musebox-overview-placeholder.png)
+
+> 上图及下方界面图均为生成式暂代示意，不包含真实用户图片或真实使用数据；实际界面请以当前版本为准。
+
+## 界面与图标
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="Assets/app-icon-preview.png" width="72" alt="MuseBox 应用图标" /><br /><sub>应用图标</sub></td>
+    <td align="center" width="33%"><img src="Assets/scene-icon-preview.png" width="72" alt="MuseBox 场景文件图标" /><br /><sub>.mubo 场景图标</sub></td>
+    <td align="center" width="33%"><img src="Assets/immersive-collection-icon.png" width="72" alt="MuseBox 沉浸收集图标" /><br /><sub>沉浸收集图标</sub></td>
+  </tr>
+</table>
+
+### 自由画板、组合与图层
+
+![MuseBox 画板与嵌套图层生成式示意](docs/images/board-layers-placeholder.png)
+
+画板支持图片、文字和绘制内容混合排布，并可通过组合背景和树形图层管理复杂结构。
+
+### 快速收集与外观
+
+![MuseBox 深色收集界面生成式示意](docs/images/collection-placeholder.png)
+
+抽屉式素材管理、沉浸收集小窗以及浅色、深色和跟随系统外观共同构成完整的桌面工作流。
 
 ## 核心功能
 
@@ -21,6 +53,7 @@ MuseBox 是一款面向 Windows 的本地灵感收集与视觉整理工具。它
 - **场景文件**：通过 `.mubo` 保存可编辑画板，保留元素布局、变换、分组和图层信息。
 - **链接与注释**：为素材附加说明和网页、文件或文件夹链接，便于回到内容来源。
 - **外观适配**：支持浅色、深色和跟随系统主题，并提供画板背景与透明度设置。
+- **画板模式**：支持鼠标穿透、透明编辑及相对指定应用窗口的智能置顶。
 
 ## 快速开始
 
@@ -67,6 +100,23 @@ dotnet publish .\MuseBox.csproj -p:PublishProfile=win-x64
 - 组合锁定时，单击内部元素会选择外层锁定组；逐层双击可临时进入嵌套组合并选择具体元素。
 - 拖动图层行可调整同级顺序，拖到组合中可改变父子关系，拖出缩进范围可移至上级或根级。
 - 组合背景范围会根据全部后代实时计算，外层背景始终位于内层背景与内容之后。
+
+### 排列与对齐
+
+画板右键菜单的“排列”包含自动排列、左对齐、右对齐、上对齐、下对齐、水平分布和垂直分布，适用于图片、文字、绘制和组合。
+
+- 没有选择时处理整个画板；有选择时只处理选中范围，完整组合保持内部布局。
+- 四向对齐各有普通对齐与等距排列子项：普通对齐只贴齐指定边；左／右等距排列为单列，上／下等距排列为单行，间距固定为 18 个画板单位。
+- 水平分布为上下居中的横向胶片排列；垂直分布为左右居中的纵向排列，均使用 18 个画板单位的间距。
+- 所有排列至少需要两个排列单位；仅选中一个时禁用，不回退到全画板。各操作支持撤回和重做。
+- 自动排列保留快捷键 `Ctrl+Alt+G`；对齐、分布以及选区自动排列不改变当前视图。
+
+### 画板模式
+
+- “无视鼠标”会隐藏画板操作界面并让鼠标事件穿透到后方应用，同时临时保持画板置顶。
+- “画板透明”隐藏背景和常驻界面，但仍可选择、移动、缩放、旋转及编辑画板元素。
+- “智能置顶”允许点击选择一个外部应用窗口，使画板保持在该窗口上方，同时允许其他窗口覆盖画板。
+- 默认使用 `Ctrl+Shift+F12` 退出最近进入的画板模式，也可通过任务栏或 MuseBox 托盘菜单退出。
 
 ## 场景兼容性
 

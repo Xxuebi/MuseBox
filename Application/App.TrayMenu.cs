@@ -51,9 +51,23 @@ public partial class App
         foreach (var drawer in drawers)
         {
             var id = drawer.Id;
-            boards.Items.Add(RoundedMenus.Item($"{id} · {drawer.DisplayName}", "\uE7C3", () => OpenBoard(id)));
+            var board = _boards.GetValueOrDefault(id);
+            var row = RoundedMenus.Item($"{id} · {drawer.DisplayName}", "\uE7C3");
+            row.Items.Add(RoundedMenus.Item("打开画板", "\uE8A5", () => OpenBoard(id)));
+            var exit = RoundedMenus.Item(board?.HasPresentationMode == true
+                ? $"退出{board.PresentationModeText}" : "退出画板模式", "\uE711",
+                () => board?.ExitPresentationMode());
+            exit.IsEnabled = board?.HasPresentationMode == true;
+            row.Items.Add(exit);
+            boards.Items.Add(row);
         }
         menu.Items.Add(boards);
+        var activeBoard = _boardModeOrder.LastOrDefault(board => board.HasPresentationMode);
+        var exitMode = RoundedMenus.Item(activeBoard is null
+            ? "退出画板模式"
+            : $"退出画板模式 · {activeBoard.PresentationModeText}", "\uE711", ExitMostRecentBoardMode);
+        exitMode.IsEnabled = activeBoard is not null;
+        menu.Items.Add(exitMode);
         menu.Items.Add(new Separator());
         menu.Items.Add(RoundedMenus.Item("退出", "\uE8BB", ExitApplication));
         return menu;

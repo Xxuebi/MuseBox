@@ -203,7 +203,10 @@ public partial class SettingsWindow : Window
     private void OnClearBoardShortcutClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string id })
-            _shortcutRows.Single(x => x.Id == id).Gesture = string.Empty;
+            _shortcutRows.Single(x => x.Id == id).Gesture =
+                id == BoardShortcutCatalog.ExitBoardMode
+                    ? BoardShortcutCatalog.Definitions.Single(x => x.Id == id).DefaultGesture
+                    : string.Empty;
         ValidationText.Text = string.Empty;
     }
 
@@ -218,6 +221,14 @@ public partial class SettingsWindow : Window
         if (HotkeyToggle.IsChecked == true && _selectedVirtualKey == 0)
         {
             ValidationText.Text = "启用快捷键时必须设置一个按键。";
+            return;
+        }
+        var exitModeGesture = _shortcutRows.Single(x => x.Id == BoardShortcutCatalog.ExitBoardMode).Gesture;
+        if (!BoardShortcutCatalog.TryParse(exitModeGesture, out var exitModeKey) || exitModeKey is null ||
+            exitModeKey.Modifiers == ModifierKeys.None)
+        {
+            SettingsCategories.SelectedItem = ShortcutSettingsTab;
+            ValidationText.Text = "退出画板模式必须设置包含修饰键的快捷键。";
             return;
         }
         var conflicts = RefreshShortcutFeedback();
@@ -365,7 +376,8 @@ public partial class SettingsWindow : Window
     private void BuildShortcutGroups()
     {
         AddGroup("编辑", BoardShortcutCatalog.Undo, BoardShortcutCatalog.Redo, BoardShortcutCatalog.Paste, BoardShortcutCatalog.Delete);
-        AddGroup("画板视图", BoardShortcutCatalog.FitAll, BoardShortcutCatalog.BoardSettings);
+        AddGroup("画板视图", BoardShortcutCatalog.FitAll, BoardShortcutCatalog.BoardSettings,
+            BoardShortcutCatalog.ExitBoardMode);
         AddGroup("排列与组合", BoardShortcutCatalog.Arrange,
             BoardShortcutCatalog.Group, BoardShortcutCatalog.Ungroup);
         AddGroup("层级", BoardShortcutCatalog.BringForward, BoardShortcutCatalog.SendBackward,

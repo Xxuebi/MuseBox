@@ -26,13 +26,14 @@ public static class BoardShortcutCatalog
     public const string AddText = "add_text";
     public const string Draw = "draw";
     public const string Eraser = "eraser";
+    public const string ExitBoardMode = "exit_board_mode";
 
     public static IReadOnlyList<BoardShortcutDefinition> Definitions { get; } =
     [
         new(Undo, "撤回", "Ctrl+Z"),
         new(Redo, "重做", "Ctrl+Y"),
         new(Paste, "粘贴", "Ctrl+V"),
-        new(Arrange, "自动排布", "Ctrl+Alt+G"),
+        new(Arrange, "自动排列", "Ctrl+Alt+G"),
         new(Group, "组合", "Ctrl+G"),
         new(Ungroup, "解散组合", "Ctrl+Shift+G"),
         new(FitAll, "适应全部", "Ctrl+0"),
@@ -47,7 +48,8 @@ public static class BoardShortcutCatalog
         new(BoardSettings, "画板设置", "Ctrl+Alt+S"),
         new(AddText, "添加注释", "T"),
         new(Draw, "画笔", "B"),
-        new(Eraser, "橡皮擦", "E")
+        new(Eraser, "橡皮擦", "E"),
+        new(ExitBoardMode, "退出画板模式", "Ctrl+Shift+F12")
     ];
 
     public static Dictionary<string, string> CreateDefaults() =>

@@ -1,5 +1,8 @@
 using System.Threading;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Interop;
+using ScreenshotCollector.Models;
 using ScreenshotCollector.Services;
 using Forms = System.Windows.Forms;
 
@@ -14,6 +17,10 @@ public partial class App : Application
     private bool _ownsMutex;
     private EventWaitHandle? _wakeEvent;
     private Forms.NotifyIcon? _trayIcon;
+    private readonly IGlobalHotkeyService _boardModeHotkey = new GlobalHotkeyService(0x5344);
+    private readonly List<BoardWindow> _boardModeOrder = new();
+    private HotkeyModifiers _boardModeHotkeyModifiers;
+    private int _boardModeHotkeyVirtualKey;
 
     public bool IsExiting { get; private set; }
     public IBoardRepository Repository { get; private set; } = null!;
@@ -85,6 +92,10 @@ public partial class App : Application
         MainWindow = CollectorWindow;
         CreateTrayIcon();
         CollectorWindow.Show();
+        _boardModeHotkey.Pressed += (_, _) => Dispatcher.Invoke(ExitMostRecentBoardMode);
+        if (!TryConfigureBoardModeHotkey(startupSettings))
+            _trayIcon?.ShowBalloonTip(3500, "MuseBox", "退出画板模式快捷键已被其他程序占用。",
+                Forms.ToolTipIcon.Warning);
         try
         {
             await CollectorWindow.Initialization;
@@ -128,6 +139,44 @@ public partial class App : Application
             _ = board.ReloadShortcutsAsync();
     }
 
+    public bool TryConfigureBoardModeHotkey(AppSettings settings)
+    {
+        var value = BoardShortcutCatalog.Merge(settings.BoardShortcuts)[BoardShortcutCatalog.ExitBoardMode];
+        if (!BoardShortcutCatalog.TryParse(value, out var gesture) || gesture is null ||
+            gesture.Modifiers == ModifierKeys.None) return false;
+        var modifiers = HotkeyModifiers.None;
+        if (gesture.Modifiers.HasFlag(ModifierKeys.Alt)) modifiers |= HotkeyModifiers.Alt;
+        if (gesture.Modifiers.HasFlag(ModifierKeys.Control)) modifiers |= HotkeyModifiers.Control;
+        if (gesture.Modifiers.HasFlag(ModifierKeys.Shift)) modifiers |= HotkeyModifiers.Shift;
+        if (gesture.Modifiers.HasFlag(ModifierKeys.Windows)) modifiers |= HotkeyModifiers.Windows;
+        var virtualKey = KeyInterop.VirtualKeyFromKey(gesture.Key);
+        var handle = new WindowInteropHelper(CollectorWindow).EnsureHandle();
+        var oldModifiers = _boardModeHotkeyModifiers;
+        var oldVirtualKey = _boardModeHotkeyVirtualKey;
+        if (!_boardModeHotkey.Register(handle, modifiers, virtualKey))
+        {
+            if (oldVirtualKey != 0) _boardModeHotkey.Register(handle, oldModifiers, oldVirtualKey);
+            return false;
+        }
+        _boardModeHotkeyModifiers = modifiers;
+        _boardModeHotkeyVirtualKey = virtualKey;
+        return true;
+    }
+
+    public void NotifyBoardModeEntered(BoardWindow board)
+    {
+        _boardModeOrder.Remove(board);
+        _boardModeOrder.Add(board);
+    }
+
+    public void NotifyBoardModeExited(BoardWindow board) => _boardModeOrder.Remove(board);
+
+    public void ExitMostRecentBoardMode()
+    {
+        _boardModeOrder.RemoveAll(board => !board.HasPresentationMode);
+        _boardModeOrder.LastOrDefault()?.ExitPresentationMode();
+    }
+
     public void NotifyThemeChanged()
     {
         foreach (var board in _boards.Values) board.RefreshTheme();
@@ -156,6 +205,7 @@ public partial class App : Application
         foreach (var board in _boards.Values.ToArray()) board.Close();
         CollectorWindow.Close();
         _trayIcon?.Dispose();
+        _boardModeHotkey.Dispose();
         _wakeEvent?.Set();
         Shutdown();
     }
@@ -182,6 +232,7 @@ public partial class App : Application
         IsExiting = true;
         ThemeService.ThemeChanged -= OnThemeChanged;
         ThemeService.StopWatching();
+        _boardModeHotkey.Dispose();
         _sceneActivation?.Dispose();
         if (_trayMenu is not null) _trayMenu.IsOpen = false;
         _trayIcon?.Dispose();

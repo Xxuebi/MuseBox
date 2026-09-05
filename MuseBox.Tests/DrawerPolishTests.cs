@@ -140,12 +140,17 @@ internal static partial class Program
         var menu = (ContextMenu)typeof(App).GetMethod("CreateTrayMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(Application.Current, new object[] { repository.GetDrawersAsync().GetAwaiter().GetResult() })!;
         AssertRoundedMenuShadow(menu);
-        Equal(4, menu.Items.Count);
+        Equal(5, menu.Items.Count);
         Equal("显示 MuseBox", ((MenuItem)menu.Items[0]).Header.ToString()!);
         var boards = (MenuItem)menu.Items[1];
         Equal(4, boards.Items.Count);
         Equal("A · 未命名", ((MenuItem)boards.Items[0]).Header.ToString()!);
-        Equal("退出", ((MenuItem)menu.Items[3]).Header.ToString()!);
+        Equal(2, ((MenuItem)boards.Items[0]).Items.Count);
+        Equal("退出画板模式", ((MenuItem)((MenuItem)boards.Items[0]).Items[1]).Header.ToString()!);
+        True(!((MenuItem)((MenuItem)boards.Items[0]).Items[1]).IsEnabled, "未打开画板的模式退出项没有禁用");
+        Equal("退出画板模式", ((MenuItem)menu.Items[2]).Header.ToString()!);
+        True(!((MenuItem)menu.Items[2]).IsEnabled, "没有活动模式时托盘一级退出项没有禁用");
+        Equal("退出", ((MenuItem)menu.Items[4]).Header.ToString()!);
         SaveDrawingTestVisual(menu, "rounded-tray-menu.png");
         // Render the actual submenu children without invoking user-owned board windows.
         var submenu = new ContextMenu { Style = menu.Style };

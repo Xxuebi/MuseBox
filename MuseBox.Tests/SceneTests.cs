@@ -304,7 +304,7 @@ internal static partial class Program
                 "bin", "Release", "net48", "MuseBox.ThumbnailProvider.dll");
             True(File.Exists(providerPath), "缩略图处理器没有生成");
             var name = AssemblyName.GetAssemblyName(providerPath);
-            Equal(new Version(1, 1, 16, 0), name.Version!);
+            Equal(new Version(1, 1, 21, 0), name.Version!);
             var assembly = Assembly.LoadFile(providerPath);
             var type = assembly.GetType("MuseBox.ThumbnailProvider.SceneThumbnailProvider", true)!;
             Equal(new Guid("6F67433A-1EA6-47D0-982B-30EFAE588F38"), type.GUID);

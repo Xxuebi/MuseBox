@@ -6,7 +6,7 @@ namespace ScreenshotCollector.Services;
 
 public sealed class GlobalHotkeyService : IGlobalHotkeyService
 {
-    private const int HotkeyId = 0x5343;
+    private readonly int _hotkeyId;
     private const int WmHotkey = 0x0312;
     private const uint ModNoRepeat = 0x4000;
 
@@ -15,6 +15,8 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
     private bool _registered;
 
     public event EventHandler? Pressed;
+
+    public GlobalHotkeyService(int hotkeyId = 0x5343) => _hotkeyId = hotkeyId;
 
     public bool Register(IntPtr windowHandle, HotkeyModifiers modifiers, int virtualKey)
     {
@@ -26,7 +28,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
         _registered = RegisterHotKey(
             windowHandle,
-            HotkeyId,
+            _hotkeyId,
             (uint)modifiers | ModNoRepeat,
             (uint)virtualKey);
 
@@ -44,7 +46,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
     {
         if (_registered && _windowHandle != IntPtr.Zero)
         {
-            UnregisterHotKey(_windowHandle, HotkeyId);
+            UnregisterHotKey(_windowHandle, _hotkeyId);
         }
 
         _source?.RemoveHook(WindowProcedure);
@@ -66,7 +68,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
         IntPtr longParameter,
         ref bool handled)
     {
-        if (message == WmHotkey && wordParameter.ToInt32() == HotkeyId)
+        if (message == WmHotkey && wordParameter.ToInt32() == _hotkeyId)
         {
             handled = true;
             Pressed?.Invoke(this, EventArgs.Empty);

@@ -98,6 +98,7 @@ public partial class BoardWindow : Window
         _repository = repository;
         _importService = importService;
         InitializeComponent();
+        InitializePresentationModes();
         Opacity = 0;
         InitializeTextToolbar();
         UpdateDrawingToolbarState();
@@ -134,6 +135,7 @@ public partial class BoardWindow : Window
             _renderQualityTimer.Stop();
             ResetEraserPreview();
             CloseToolPopups();
+            DisposePresentationModes();
         };
         Loaded += OnLoaded;
         Closing += async (sender, args) =>
@@ -1347,7 +1349,7 @@ public partial class BoardWindow : Window
         UndoMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Undo];
         RedoMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Redo];
         PasteMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Paste];
-        ArrangeMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Arrange];
+        AutoArrangeMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Arrange];
         GroupMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Group];
         UngroupMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Ungroup];
         FitAllMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.FitAll];
@@ -1444,6 +1446,14 @@ public partial class BoardWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_presentationMode == BoardPresentationMode.SmartTopmost && _smartTarget == IntPtr.Zero &&
+            e.Key == Key.Escape)
+        {
+            ExitPresentationModeCore(showToast: false);
+            ShowModeToast("已退出智能置顶模式", "已取消选择目标窗口");
+            e.Handled = true;
+            return;
+        }
         if (_imageEditBusy) { e.Handled = true; return; }
         if (e.Key == Key.Escape && _imageToolbarId is not null)
         {
@@ -1624,11 +1634,9 @@ public partial class BoardWindow : Window
         var hasSelection = _selected.Count > 0;
         var hasSelectedImage = _items.Any(x => _selected.Contains(x.Id));
         CopyMenuItem.IsEnabled = hasSelectedImage;
-        ExpandSelectedImageGroups();
         GroupMenuItem.IsEnabled = CanGroupImages();
         UngroupMenuItem.IsEnabled = AllElements.Any(x => _selected.Contains(x.Id) && x.GroupId.Length > 0);
-        ArrangeMenuItem.Header = hasSelection ? "自动排列选中图片" : "自动排列全部图片";
-        ArrangeMenuItem.IsEnabled = _items.Count(x => !hasSelection || _selected.Contains(x.Id)) >= 2;
+        UpdateLayoutMenu();
         UpdateUndoButtons();
         ResetRotationMenuItem.IsEnabled = hasSelectedImage;
         ResetSizeMenuItem.IsEnabled = hasSelectedImage;
@@ -1715,7 +1723,7 @@ public partial class BoardWindow : Window
             _viewport.WindowWidth = Width;
             _viewport.WindowHeight = Height;
         }
-        _viewport.Topmost = Topmost;
+        _viewport.Topmost = HasPresentationMode ? _modeRestoreTopmost : Topmost;
         return _repository.SaveViewportAsync(_viewport);
     }
 

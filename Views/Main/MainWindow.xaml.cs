@@ -341,6 +341,12 @@ public partial class MainWindow : Window
         if (window.ShowDialog() == true && window.ResultSettings is not null)
         {
             var oldStorageRoot = AppDataPaths.ResolveRoot(_settings.BoardStoragePath);
+            if (!((App)Application.Current).TryConfigureBoardModeHotkey(window.ResultSettings))
+            {
+                PromptWindow.Inform("快捷键不可用", "退出画板模式快捷键已被其他程序占用，设置未保存。");
+                ApplyHotkeyRegistration();
+                return;
+            }
             _settings = window.ResultSettings;
             await _settingsService.SaveAsync(_settings);
             LanguageService.Apply(_settings.LanguageCode);

@@ -1019,42 +1019,4 @@ public partial class BoardWindow
         BoardStatus.Text = $"已定位组合“{group.LayerName}” · 保持当前缩放";
     }
 
-    private async Task ArrangeImagesAsync()
-    {
-        await FlushPendingDrawingAsync();
-        ExpandSelectedImageGroups();
-        var images = _items.Where(x => _selected.Count == 0 || _selected.Contains(x.Id)).ToArray();
-        if (images.Length == 0) { BoardStatus.Text = "当前范围内没有图片"; return; }
-        if (images.Length == 1) { BoardStatus.Text = "至少需要两张图片进行排列"; return; }
-        // A saved group is one layout unit, including text and drawings that share
-        // the image's group. Arranging never breaks a mixed group's internal layout.
-        var units = images.GroupBy(x => x.GroupId.Length == 0 ? "image:" + x.Id : "group:" + RootGroupId(x.GroupId))
-            .Select(group =>
-            {
-                var elements = group.First().GroupId.Length == 0
-                    ? group.Cast<BoardElement>().ToArray()
-                    : GroupMembers(RootGroupId(group.First().GroupId));
-                var bounds = elements.Select(RotatedImageBounds)
-                    .Aggregate(Rect.Empty, (current, next) => { current.Union(next); return current; });
-                return (Elements: elements, Bounds: bounds);
-            }).ToArray();
-        if (units.Length < 2) { BoardStatus.Text = "当前只有一个图片组，无需排列"; return; }
-        PushUndoSnapshot();
-        var boxes = units.Select((unit, i) => new BoardItem { Id = i.ToString(), X = unit.Bounds.X,
-            Y = unit.Bounds.Y, Width = unit.Bounds.Width, Height = unit.Bounds.Height, ZIndex = i }).ToList();
-        var arranged = BoardMath.ArrangeGrid(boxes);
-        var originX = units.Min(x => x.Bounds.Left);
-        var originY = units.Min(x => x.Bounds.Top);
-        foreach (var box in arranged)
-        {
-            var unit = units[int.Parse(box.Id)];
-            var dx = originX + box.X - unit.Bounds.X;
-            var dy = originY + box.Y - unit.Bounds.Y;
-            foreach (var element in unit.Elements) { element.X += dx; element.Y += dy; UpdateItemVisual(element); }
-        }
-        await PersistElementsAsync(units.SelectMany(unit => unit.Elements));
-        UpdateSelectionVisuals();
-        if (_selected.Count == 0) FitAll();
-        BoardStatus.Text = _selected.Count == 0 ? "已自动排布全部图片" : "已自动排布选中图片";
-    }
 }

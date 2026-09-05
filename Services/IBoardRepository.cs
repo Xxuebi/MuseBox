@@ -4,6 +4,8 @@ namespace ScreenshotCollector.Services;
 
 public interface IBoardRepository
 {
+    Task ApplyElementPositionsAsync(string drawerId, IReadOnlyList<BoardElementPosition> positions,
+        CancellationToken cancellationToken = default);
     Task InitializeAsync(CancellationToken cancellationToken = default);
     Task<SceneSnapshot> CaptureSceneAsync(string drawerId, CancellationToken cancellationToken = default);
     Task<SceneBinding?> GetSceneBindingAsync(string drawerId, CancellationToken cancellationToken = default);

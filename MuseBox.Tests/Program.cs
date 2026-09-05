@@ -38,6 +38,18 @@ internal static partial class Program
             ("快捷键格式化", HotkeyFormatting),
             ("缩放保持指针位置", ZoomKeepsPointer),
             ("500 项自动排布", ArrangeFiveHundredItems),
+            ("统一排列几何对齐与等距分布", LayoutGeometry),
+            ("统一排列混合选区全部操作及撤回持久化", LayoutMixedSelection),
+            ("统一排列无图片全画板单选和无位移", LayoutWholeBoardAndNoOp),
+            ("统一排列嵌套组合边界和局部选择", LayoutNestedGroups),
+            ("统一排列坐标事务失败回滚", LayoutAtomicFailure),
+            ("统一排列菜单顺序及启用数量", LayoutMenuAvailability),
+            ("统一排列提交未完成文字和绘制", LayoutPendingEdits),
+            ("统一排列事务等待中防止重复执行", LayoutBusyGuard),
+            ("画板模式互斥透明与状态恢复", BoardPresentationModeRoundTrip),
+            ("画板模式全局退出快捷键安全", BoardModeShortcutSafety),
+            ("画板模式原生穿透与智能置顶目标生命周期", BoardModeNativeWindowBehavior),
+            ("画板模式多画板按最近进入顺序退出", BoardModeMostRecentExitOrder),
             ("八向拉伸几何", EightDirectionResize),
             ("多选范围缩放", MultiSelectionScaling),
             ("逐层和顶底层排序", LayerOrdering),
@@ -605,7 +617,7 @@ internal static partial class Program
             ((System.Windows.Controls.TextBlock)window.FindName("AboutChineseSubtitle")).Text == "灵感收集器",
             "关于页没有以 MuseBox 为主标题并保留中文副标题");
         var versionText = (System.Windows.Controls.TextBlock)window.FindName("AppVersionText");
-        True(versionText.Text.Contains("1.1.16", StringComparison.Ordinal),
+        True(versionText.Text.Contains("1.1.21", StringComparison.Ordinal),
             "关于栏目没有显示当前程序集版本");
         window.ApplyTemplate();
         var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(window);
@@ -670,14 +682,14 @@ internal static partial class Program
         Equal("#000000,#FFFFFF", string.Join(',', new AppSettings().SavedColors));
         Equal("#123456", new AppSettings { SavedColors = ["#123456"] }.Copy().SavedColors.Single());
         Equal(6, window.ShortcutGroups.Count);
-        Equal(19, window.ShortcutGroups.Sum(x => x.Shortcuts.Count));
+        Equal(20, window.ShortcutGroups.Sum(x => x.Shortcuts.Count));
         window.Close();
     }
 
     private static void EmbeddedShortcutSettings()
     {
         var defaults = BoardShortcutCatalog.CreateDefaults();
-        Equal(19, defaults.Count);
+        Equal(20, defaults.Count);
         True(BoardShortcutCatalog.TryParse(defaults[BoardShortcutCatalog.Arrange], out var arrange) &&
              arrange is not null, "默认自动排布快捷键无法解析");
         var custom = BoardShortcutCatalog.Merge(defaults);
@@ -886,8 +898,8 @@ internal static partial class Program
                 .Invoke(window, new object[] { BoardShortcutCatalog.CreateDefaults() });
             var arrangeMenu = boardSurface.ContextMenu.Items
                 .OfType<System.Windows.Controls.MenuItem>()
-                .Single(x => Equals(x.Header, "自动排布"));
-            Equal("Ctrl+Alt+G", arrangeMenu.InputGestureText);
+                .Single(x => Equals(x.Header, "排列"));
+            Equal("Ctrl+Alt+G", ((System.Windows.Controls.MenuItem)arrangeMenu.Items[0]).InputGestureText);
             var textMenu = boardSurface.ContextMenu.Items
                 .OfType<System.Windows.Controls.MenuItem>()
                 .Single(x => Equals(x.Header, "添加注释"));
@@ -1083,6 +1095,21 @@ internal static partial class Program
         window.ShowInTaskbar = false;
         window.Show();
         window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        opacityTrack.ClearValue(FrameworkElement.WidthProperty);
+        window.UpdateLayout();
+        var affectLabel = (FrameworkElement)window.FindName("AffectImagesLabel");
+        var opacityText = (FrameworkElement)window.FindName("OpacityText");
+        var trackCenter = opacityTrack.TranslatePoint(new Point(0, opacityTrack.ActualHeight / 2), window).Y;
+        foreach (var control in new FrameworkElement[] { affectsImages, affectLabel, opacityText })
+            Equal(trackCenter, control.TranslatePoint(new Point(0, control.ActualHeight / 2), window).Y, .5);
+        var actions = (FrameworkElement)window.FindName("SettingsActions");
+        var frameRow = (FrameworkElement)window.FindName("WindowFrameRow");
+        var actionsTop = actions.TranslatePoint(new Point(), window).Y;
+        var frameBottom = frameRow.TranslatePoint(new Point(0, frameRow.ActualHeight), window).Y;
+        Equal(24d, actionsTop - frameBottom, .5);
+        var bottomGap = window.ActualHeight - actions.TranslatePoint(new Point(0, actions.ActualHeight), window).Y;
+        True(bottomGap >= 20 && bottomGap <= 26, $"操作按钮下方仍有多余空白：{bottomGap:0.0}");
+        True(window.ActualHeight < 400, $"紧凑布局没有缩小窗口：{window.ActualHeight:0.0}");
         True(!switchTranslate.HasAnimatedProperties,
             "开关在界面首次打开时错误播放了从关到开的动画");
         bool? lastAffectsImages = null;

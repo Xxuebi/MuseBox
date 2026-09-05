@@ -131,7 +131,7 @@ internal static partial class Program
             window.UpdateLayout();
             var scroll = (ScrollViewer)window.FindName("ShortcutScrollViewer");
             var rows = VisualChildren<TextBox>(scroll).Where(t => t.Tag is string).ToArray();
-            Equal(19, rows.Length);
+            Equal(20, rows.Length);
             True(rows.All(t => t.ActualHeight == 26), "快捷键输入框没有压缩高度");
             True(scroll.ExtentHeight <= 750, $"快捷键列表仍过长：{scroll.ExtentHeight}");
             True(rows.All(t => t.ActualWidth > 140), "按键框被压得太窄");
@@ -147,7 +147,7 @@ internal static partial class Program
             search.Text = "没有这个功能";
             Equal(Visibility.Visible, ((TextBlock)window.FindName("NoShortcutResults")).Visibility);
             search.Text = "";
-            Equal(19, window.ShortcutGroups.SelectMany(g => g.Shortcuts).Count());
+            Equal(20, window.ShortcutGroups.SelectMany(g => g.Shortcuts).Count());
             Equal(Visibility.Collapsed, ((TextBlock)window.FindName("NoShortcutResults")).Visibility);
             window.Width = 700;
             window.Height = 520;
@@ -200,7 +200,7 @@ internal static partial class Program
             try { save.Invoke(window, new object[] { window, new RoutedEventArgs() }); }
             catch (TargetInvocationException e) when (e.InnerException is InvalidOperationException && window.ResultSettings is not null)
             { /* DialogResult cannot be assigned on a non-modal test window. */ }
-            Equal(19, window.ResultSettings!.BoardShortcuts.Count);
+            Equal(20, window.ResultSettings!.BoardShortcuts.Count);
             Equal("Ctrl+Alt+Z", window.ResultSettings.BoardShortcuts[BoardShortcutCatalog.Undo]);
             Equal(originalPaste, window.ResultSettings.BoardShortcuts[BoardShortcutCatalog.Paste]);
             Equal(42, window.ResultSettings.UndoStepLimit);

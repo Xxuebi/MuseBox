@@ -15,9 +15,10 @@ public partial class SettingsWindow
         foreach (var row in _shortcutRows) row.ConflictMessage = string.Empty;
         var messages = new List<string>();
         var globalConflict = false;
-        if (_boardShortcutsEnabled)
+        if (_boardShortcutsEnabled || _shortcutRows.Any(x => x.Id == BoardShortcutCatalog.ExitBoardMode))
         {
-            var active = _shortcutRows.Where(x => !string.IsNullOrWhiteSpace(x.Gesture)).ToArray();
+            var active = _shortcutRows.Where(x => !string.IsNullOrWhiteSpace(x.Gesture) &&
+                (_boardShortcutsEnabled || x.Id == BoardShortcutCatalog.ExitBoardMode)).ToArray();
             foreach (var group in active.GroupBy(x => NormalizeGesture(x.Gesture), StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
             {
                 var message = $"{group.First().Gesture} 冲突：{string.Join("、", group.Select(x => x.DisplayName))}";
@@ -59,7 +60,7 @@ public partial class SettingsWindow
         }
         var messageText = string.Join("；", messages.Distinct());
         ShortcutConflictText.Text = messageText.Length > 0 ? messageText
-            : !_boardShortcutsEnabled ? "画板快捷键已全部禁用；原按键配置已保留" : string.Empty;
+            : !_boardShortcutsEnabled ? "普通画板快捷键已禁用；“退出画板模式”仍保持启用" : string.Empty;
         ShortcutConflictText.Visibility = ShortcutConflictText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         ShortcutConflictText.Foreground = (Brush)FindResource(messageText.Length > 0 ? "TextBrush" : "MutedTextBrush");
         if (messageText.Length > 0) ShortcutConflictText.Foreground = System.Windows.Media.Brushes.Firebrick;
