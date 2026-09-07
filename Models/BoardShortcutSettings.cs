@@ -9,7 +9,10 @@ public static class BoardShortcutCatalog
 {
     public const string Undo = "undo";
     public const string Redo = "redo";
+    public const string Copy = "copy";
     public const string Paste = "paste";
+    public const string Save = "save";
+    public const string SaveAs = "save_as";
     public const string Arrange = "arrange";
     public const string Group = "group";
     public const string Ungroup = "ungroup";
@@ -27,12 +30,18 @@ public static class BoardShortcutCatalog
     public const string Draw = "draw";
     public const string Eraser = "eraser";
     public const string ExitBoardMode = "exit_board_mode";
+    public const string ResetCamera = "reset_camera";
+    public const string ResetCameraZoom = "reset_camera_zoom";
+    public const string ToggleGrayscale = "toggle_grayscale";
 
     public static IReadOnlyList<BoardShortcutDefinition> Definitions { get; } =
     [
         new(Undo, "撤回", "Ctrl+Z"),
         new(Redo, "重做", "Ctrl+Y"),
+        new(Copy, "复制", "Ctrl+C"),
         new(Paste, "粘贴", "Ctrl+V"),
+        new(Save, "保存画板", "Ctrl+S"),
+        new(SaveAs, "画板另存为", "Ctrl+Shift+S"),
         new(Arrange, "自动排列", "Ctrl+Alt+G"),
         new(Group, "组合", "Ctrl+G"),
         new(Ungroup, "解散组合", "Ctrl+Shift+G"),
@@ -49,7 +58,10 @@ public static class BoardShortcutCatalog
         new(AddText, "添加注释", "T"),
         new(Draw, "画笔", "B"),
         new(Eraser, "橡皮擦", "E"),
-        new(ExitBoardMode, "退出画板模式", "Ctrl+Shift+F12")
+        new(ExitBoardMode, "退出画板模式", "Ctrl+Shift+F12"),
+        new(ResetCamera, "重置相机", ""),
+        new(ResetCameraZoom, "重置相机缩放", ""),
+        new(ToggleGrayscale, "去色", "")
     ];
 
     public static Dictionary<string, string> CreateDefaults() =>

@@ -28,7 +28,7 @@ public partial class SettingsWindow
             // These are navigation/editing shortcuts kept outside the configurable catalog.
             var reserved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             { ["F11"] = "全屏", ["V"] = "选择工具", ["Space"] = "平移", ["Esc"] = "退出当前工具", ["Escape"] = "退出当前工具",
-              ["Ctrl+A"] = "全选", ["Ctrl+C"] = "复制", ["Ctrl+Enter"] = "结束文字编辑" };
+              ["Ctrl+A"] = "全选", ["Ctrl+Enter"] = "结束文字编辑" };
             foreach (var row in active)
             {
                 if (reserved.TryGetValue(NormalizeGesture(row.Gesture), out var name))

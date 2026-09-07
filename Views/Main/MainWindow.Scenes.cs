@@ -40,10 +40,10 @@ public partial class MainWindow
             board?.UpdateSceneTitle(drawer);
         }
     }
-    private async void OnOpenSceneClick(object sender, RoutedEventArgs e)
+    private void OnOpenDrawerBoardMenuClick(object sender, RoutedEventArgs e)
     {
-        if (_isBusy || sender is not FrameworkElement { Tag: string id }) return;
-        if (_sceneDialogs.OpenFile(this) is { } path) await OpenSceneFileAsync(path, id);
+        if (!_isBusy && sender is FrameworkElement { Tag: string id })
+            ((App)Application.Current).OpenBoard(id);
     }
     private async void OnSaveSceneClick(object sender, RoutedEventArgs e)
     {
@@ -53,14 +53,21 @@ public partial class MainWindow
     {
         if (sender is FrameworkElement { Tag: string id }) await SaveSceneAsync(id, true);
     }
-    public async Task<bool> SaveSceneAsync(string id, bool saveAs)
+    private async void OnExportAllImagesClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string id }) return;
+        var choice = _sceneDialogs.Choose(this, "导出所有图像", "选择单独导出画板内的图片，或将画板可见内容合成为一张透明 PNG。", "导出图像", "合成 PNG");
+        if (choice == 1) await ExportBoardAsync(id, null, BoardExportMode.IndividualFiles, this);
+        else if (choice == 2) await ExportBoardAsync(id, null, BoardExportMode.CompositePng, this);
+    }
+    public async Task<bool> SaveSceneAsync(string id, bool saveAs, Window? owner = null)
     {
         if (_isBusy) return false;
         SetBusy(true); SceneOperationBusy = true;
         try
         {
             using var lease = await PrepareSceneBoardAsync(id);
-            return await SaveSceneCoreAsync(id, saveAs);
+            return await SaveSceneCoreAsync(id, saveAs, owner ?? this);
         }
         catch (Exception error) { ShowSceneError("场景保存失败", error); return false; }
         finally { SceneOperationBusy = false; SetBusy(false); await TryRefreshSceneStatusAsync(); }
@@ -70,19 +77,20 @@ public partial class MainWindow
         foreach (var model in _drawers.Where(x => x.Id == id && x.IsEditing).ToArray()) await SaveDrawerNameAsync(model.Id);
         return ((App)Application.Current).FindBoard(id) is { } board ? await board.PrepareSceneAsync() : null;
     }
-    private async Task<bool> SaveSceneCoreAsync(string id, bool saveAs)
+    private async Task<bool> SaveSceneCoreAsync(string id, bool saveAs, Window? owner = null)
     {
+        owner ??= this;
         var binding = await _repository.GetSceneBindingAsync(id);
         var path = saveAs ? null : binding?.FilePath;
         if (path is null)
         {
             var model = _drawers.First(x => x.Id == id);
             var filename = string.Concat(model.DisplayName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-            path = _sceneDialogs.SaveFile(this, filename + SceneFileService.Extension, saveAs);
+            path = _sceneDialogs.SaveFile(owner, filename + SceneFileService.Extension, saveAs);
             if (path is null) return false;
             if (saveAs && binding is not null && string.Equals(Path.GetFullPath(path), binding.FilePath, StringComparison.OrdinalIgnoreCase))
             {
-                _sceneDialogs.Inform(this, "请选择其他文件", "另存为需要使用新的文件名或位置，原场景文件将保持不变。");
+                _sceneDialogs.Inform(owner, "请选择其他文件", "另存为需要使用新的文件名或位置，原场景文件将保持不变。");
                 return false;
             }
         }
@@ -93,14 +101,90 @@ public partial class MainWindow
         try { hash = await Task.Run(() => SceneFileService.WriteAsync(path, snapshot, expected)); }
         catch (SceneFileConflictException)
         {
-            var choice = _sceneDialogs.Choose(this, "场景文件已改变", "原文件已被修改、移走或删除。确认覆盖会使用当前画板内容。", "确认覆盖", "另存为");
+            var choice = _sceneDialogs.Choose(owner, "场景文件已改变", "原文件已被修改、移走或删除。确认覆盖会使用当前画板内容。", "确认覆盖", "另存为");
             if (choice == 0) return false;
-            if (choice == 2) return await SaveSceneCoreAsync(id, true);
+            if (choice == 2) return await SaveSceneCoreAsync(id, true, owner);
             hash = await Task.Run(() => SceneFileService.WriteAsync(path, snapshot));
         }
         await _repository.MarkSceneSavedAsync(new SceneBinding(id, Path.GetFullPath(path), snapshot.Revision, hash));
         SetStatus($"场景已保存：{Path.GetFileName(path)}", false);
         return true;
+    }
+    public async Task<bool> ExportBoardAsync(string id, IReadOnlySet<string>? selectedIds,
+        BoardExportMode mode, Window? owner = null)
+    {
+        if (_isBusy) return false;
+        owner ??= this;
+        SetBusy(true); SceneOperationBusy = true;
+        try
+        {
+            using var lease = await PrepareSceneBoardAsync(id);
+            var snapshot = await _repository.CaptureSceneAsync(id);
+            var filename = string.Concat(snapshot.Document.Name.Select(character =>
+                Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
+            if (string.IsNullOrWhiteSpace(filename)) filename = "画板";
+            BoardExportResult result;
+            if (mode == BoardExportMode.IndividualFiles)
+            {
+                var request = new ImageExportRequest(snapshot, selectedIds, "图片");
+                var initial = new ImageExportOptions(
+                    string.IsNullOrWhiteSpace(_settings.ImageExportDirectory)
+                        ? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) : _settings.ImageExportDirectory,
+                    _settings.ImageExportFormat,
+                    string.IsNullOrWhiteSpace(_settings.ImageExportNamingTemplate)
+                        ? ImageExportOptions.DefaultTemplate
+                        : ImageExportTemplateService.ToCompactTemplate(_settings.ImageExportNamingTemplate));
+                BoardExportResult? exported = null;
+                ImageExportWindow? dialog = null;
+                dialog = new ImageExportWindow(request, initial, async options =>
+                {
+                    try
+                    {
+                        var plan = ImageExportTemplateService.CreatePlan(request, options);
+                        var action = ImageExportConflictAction.OverwriteAll;
+                        if (plan.Conflicts.Count > 0)
+                        {
+                            var choice = _sceneDialogs.Choose(dialog!, "文件已存在",
+                                $"目标位置已有 {plan.Conflicts.Count} 个同名文件。请选择覆盖全部、跳过这些文件，或取消导出。",
+                                "覆盖全部", "跳过冲突");
+                            if (choice == 0) return new ImageExportAttempt(false);
+                            action = choice == 2 ? ImageExportConflictAction.SkipConflicts : ImageExportConflictAction.OverwriteAll;
+                            if (action == ImageExportConflictAction.SkipConflicts && plan.Conflicts.Count == plan.Entries.Count)
+                                return new ImageExportAttempt(false, "所有目标文件都已存在，没有可导出的文件。");
+                        }
+                        SetStatus("正在导出图片…", false);
+                        exported = await BoardExportService.ExportImagesAsync(request, options, action);
+                        _settings.ImageExportDirectory = Path.GetFullPath(options.Directory);
+                        _settings.ImageExportFormat = options.Format;
+                        _settings.ImageExportNamingTemplate = options.NamingTemplate;
+                        try { await _settingsService.SaveAsync(_settings); }
+                        catch { /* Export remains successful even if preference persistence is unavailable. */ }
+                        return new ImageExportAttempt(true);
+                    }
+                    catch (Exception error) { return new ImageExportAttempt(false, Friendly(error)); }
+                }) { Owner = owner };
+                if (dialog.ShowDialog() != true || exported is null) return false;
+                result = exported;
+            }
+            else
+            {
+                var path = _sceneDialogs.SaveExportPng(owner, filename + ".png");
+                if (path is null) return false;
+                SetStatus("正在合成 PNG…", false);
+                result = await BoardExportService.ExportCompositeAsync(snapshot, selectedIds, path);
+            }
+            var size = result.PixelWidth > 0 ? $"（{result.PixelWidth} × {result.PixelHeight}）" : string.Empty;
+            var capped = result.WasScaledDown ? "，已按尺寸上限等比缩小" : string.Empty;
+            SetStatus($"已导出 {result.FileCount} 个文件{size}{capped}", false);
+            return true;
+        }
+        catch (Exception error)
+        {
+            SetStatus($"导出失败：{Friendly(error)}", true);
+            _sceneDialogs.Inform(owner, "导出失败", Friendly(error));
+            return false;
+        }
+        finally { SceneOperationBusy = false; SetBusy(false); await TryRefreshSceneStatusAsync(); }
     }
     public async Task<bool> OpenSceneFileAsync(string path, string? targetDrawer = null)
     {
@@ -148,7 +232,7 @@ public partial class MainWindow
         if (binding is not null ? snapshot.Revision <= binding.SavedRevision : !hasContent) return true;
         var choice = _sceneDialogs.Choose(this, "打开前保存当前画板？",
             "打开场景将替换这个抽屉的内容。不保存会放弃当前尚未写入场景文件的内容。", "保存", "不保存");
-        return choice == 2 || choice == 1 && await SaveSceneCoreAsync(id, false);
+        return choice == 2 || choice == 1 && await SaveSceneCoreAsync(id, false, this);
     }
     public async Task<bool> ConfirmSceneExitAsync()
     {
@@ -165,7 +249,7 @@ public partial class MainWindow
                 if (!drawer.HasUnsavedScene) continue;
                 var choice = _sceneDialogs.Choose(this, "场景尚未保存", $"“{drawer.DisplayName}”有未保存修改。退出后本机工作内容仍保留，但场景文件不会自动更新。",
                     "保存", "不保存");
-                if (choice == 0 || choice == 1 && !await SaveSceneCoreAsync(drawer.Id, false)) return false;
+                if (choice == 0 || choice == 1 && !await SaveSceneCoreAsync(drawer.Id, false, this)) return false;
             }
             return true;
         }

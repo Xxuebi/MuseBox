@@ -249,7 +249,8 @@ public partial class BoardWindow : Window
             {
                 case BoardItem image:
                     var cached = images.GetValueOrDefault(image.Id);
-                    AddItemVisual(image, Equals(cached?.Tag, image.AssetPath) ? cached?.Source : null);
+                    AddItemVisual(image, Equals(cached?.Tag, image.AssetPath)
+                        ? GetOriginalImageSource(cached?.Source) : null);
                     break;
                 case BoardTextItem text: AddTextVisual(text); break;
                 case BoardDrawingItem drawing: AddDrawingVisual(drawing); break;
@@ -287,7 +288,7 @@ public partial class BoardWindow : Window
             };
             grid.Children.Add(image);
             if (GifAnimationService.IsGif(item.AssetPath)) _ = AttachGifAsync(item, image);
-            else if (cachedSource is not null) image.Source = cachedSource;
+            else if (cachedSource is not null) image.Source = GetDisplayImageSource(cachedSource);
             else _ = LoadImageAsync(item.AssetPath, image);
         }
         else
@@ -308,7 +309,7 @@ public partial class BoardWindow : Window
         _visuals[item.Id] = new ItemVisual(border, null, null);
     }
 
-    private static async Task LoadImageAsync(string path, System.Windows.Controls.Image target)
+    private async Task LoadImageAsync(string path, System.Windows.Controls.Image target)
     {
         var source = await Task.Run(() =>
         {
@@ -325,7 +326,7 @@ public partial class BoardWindow : Window
             }
             catch { return null; }
         });
-        if (source is not null) target.Source = source;
+        if (source is not null) target.Source = GetDisplayImageSource(source);
     }
 
     private void OnItemMouseDown(BoardElement item, MouseButtonEventArgs e)
@@ -472,7 +473,8 @@ public partial class BoardWindow : Window
             IsDocumentEnabled = true
         };
         var border = CreateElementBorder(item);
-        border.Background = ParseBrush(item.BackgroundColor, Brushes.Transparent);
+        if (_grayscaleEnabled) ApplyDocumentGrayscale(editor.Document);
+        border.Background = ParseDisplayBrush(item.BackgroundColor, Brushes.Transparent);
         border.Child = editor;
         WireElementEvents(border, item);
         AddElementBorder(border, item);
@@ -483,7 +485,8 @@ public partial class BoardWindow : Window
     {
         var drawing = new BoardDrawingVisual
         {
-            Item = item, Width = item.Width, Height = item.Height, Margin = new Thickness(-1.2)
+            Item = item, Width = item.Width, Height = item.Height, Margin = new Thickness(-1.2),
+            Grayscale = _grayscaleEnabled
         };
         var border = CreateElementBorder(item);
         border.Child = drawing;
@@ -935,7 +938,8 @@ public partial class BoardWindow : Window
             var dx = (current.X - _lastMouse.X) / _viewZoom;
             var dy = (current.Y - _lastMouse.Y) / _viewZoom;
             _itemsDragMoved |= Math.Abs(dx) + Math.Abs(dy) > .001;
-            foreach (var item in AllElements.Where(x => _selected.Contains(x.Id)))
+            if (_viewport.SnapToGrid) ApplySnappedDrag(current);
+            else foreach (var item in AllElements.Where(x => _selected.Contains(x.Id)))
             {
                 item.X += dx;
                 item.Y += dy;
@@ -1348,11 +1352,17 @@ public partial class BoardWindow : Window
 
         UndoMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Undo];
         RedoMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Redo];
+        CopyMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Copy];
         PasteMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Paste];
+        SaveSceneMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Save];
+        SaveSceneAsMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.SaveAs];
         AutoArrangeMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Arrange];
         GroupMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Group];
         UngroupMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.Ungroup];
         FitAllMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.FitAll];
+        ResetCameraMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.ResetCamera];
+        ResetCameraZoomMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.ResetCameraZoom];
+        GrayscaleMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.ToggleGrayscale];
         BringForwardMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.BringForward];
         SendBackwardMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.SendBackward];
         BringToFrontMenuItem.InputGestureText = _shortcutValues[BoardShortcutCatalog.BringToFront];
@@ -1378,11 +1388,17 @@ public partial class BoardWindow : Window
         {
             case BoardShortcutCatalog.Undo: _ = UndoAsync(); break;
             case BoardShortcutCatalog.Redo: _ = RedoAsync(); break;
+            case BoardShortcutCatalog.Copy: CopySelected(); break;
             case BoardShortcutCatalog.Paste: _ = PasteAsync(); break;
+            case BoardShortcutCatalog.Save: OnBoardSaveSceneClick(this, new RoutedEventArgs()); break;
+            case BoardShortcutCatalog.SaveAs: OnBoardSaveSceneAsClick(this, new RoutedEventArgs()); break;
             case BoardShortcutCatalog.Arrange: OnArrangeClick(this, new RoutedEventArgs()); break;
             case BoardShortcutCatalog.Group: _ = GroupImagesAsync(); break;
             case BoardShortcutCatalog.Ungroup: _ = UngroupImagesAsync(); break;
             case BoardShortcutCatalog.FitAll: FitAll(); BoardStatus.Text = "已适应全部内容"; break;
+            case BoardShortcutCatalog.ResetCamera: OnResetCameraClick(this, new RoutedEventArgs()); break;
+            case BoardShortcutCatalog.ResetCameraZoom: OnResetCameraZoomClick(this, new RoutedEventArgs()); break;
+            case BoardShortcutCatalog.ToggleGrayscale: OnGrayscaleClick(this, new RoutedEventArgs()); break;
             case BoardShortcutCatalog.BringForward: _ = ShiftZAsync(1); break;
             case BoardShortcutCatalog.SendBackward: _ = ShiftZAsync(-1); break;
             case BoardShortcutCatalog.BringToFront: _ = MoveToExtremeAsync(true); break;
@@ -1407,6 +1423,11 @@ public partial class BoardWindow : Window
         {
             var parsed = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color);
             parsed.A = alpha;
+            if (_grayscaleEnabled)
+            {
+                var gray = (byte)Math.Clamp(Math.Round(.2126 * parsed.R + .7152 * parsed.G + .0722 * parsed.B), 0, 255);
+                parsed.R = parsed.G = parsed.B = gray;
+            }
             var brush = new SolidColorBrush(parsed);
             BoardSurface.Background = brush;
             Background = Brushes.Transparent;
@@ -1511,10 +1532,6 @@ public partial class BoardWindow : Window
             foreach (var item in AllElements) _selected.Add(item.Id);
             UpdateSelectionVisuals();
             e.Handled = true;
-        }
-        else if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-        {
-            CopySelected(); e.Handled = true;
         }
     }
 
@@ -1633,10 +1650,16 @@ public partial class BoardWindow : Window
         }
         var hasSelection = _selected.Count > 0;
         var hasSelectedImage = _items.Any(x => _selected.Contains(x.Id));
+        ExportAllOriginalsMenuItem.IsEnabled = _items.Count > 0;
+        ExportAllCompositeMenuItem.IsEnabled = AllElements.Any();
+        ExportSelectedMenuItem.IsEnabled = hasSelection;
+        ExportSelectedOriginalsMenuItem.IsEnabled = hasSelectedImage;
+        ExportSelectedCompositeMenuItem.IsEnabled = hasSelection;
         CopyMenuItem.IsEnabled = hasSelectedImage;
         GroupMenuItem.IsEnabled = CanGroupImages();
         UngroupMenuItem.IsEnabled = AllElements.Any(x => _selected.Contains(x.Id) && x.GroupId.Length > 0);
         UpdateLayoutMenu();
+        UpdateGridMenuState();
         UpdateUndoButtons();
         ResetRotationMenuItem.IsEnabled = hasSelectedImage;
         ResetSizeMenuItem.IsEnabled = hasSelectedImage;
@@ -1699,9 +1722,12 @@ public partial class BoardWindow : Window
         }));
     }
 
-    private void ApplyViewportTransform() =>
+    private void ApplyViewportTransform()
+    {
         ViewTransform.Matrix = new Matrix(
             _viewZoom, 0, 0, _viewZoom, _viewPanX, _viewPanY);
+        UpdateGridVisual();
+    }
 
     private void QueueViewportSave()
     {
@@ -1746,6 +1772,7 @@ public partial class BoardWindow : Window
         ApplyPrimaryToolTheme();
         UpdateDrawingToolbarState();
         UpdateTextPaletteForSelection();
+        UpdateGridVisual();
     }
 
     private void OnToolbarToggleClick(object sender, RoutedEventArgs e) => ShowToolbar(!_toolbarVisible);

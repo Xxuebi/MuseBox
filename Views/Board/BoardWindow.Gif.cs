@@ -39,7 +39,7 @@ public partial class BoardWindow
             if (!IsVisible || WindowState == WindowState.Minimized) return;
             foreach (var binding in _gifBindings.Values)
                 if (binding.Playback is { } playback && playback.Advance(elapsed))
-                    binding.Target.Source = playback.Animation.Frames[playback.FrameIndex].Image;
+                    binding.Target.Source = GetDisplayImageSource(playback.Animation.Frames[playback.FrameIndex].Image);
             UpdateGifToolbar();
         };
         Closed += (_, _) =>
@@ -57,7 +57,7 @@ public partial class BoardWindow
         if (_gifBindings.TryGetValue(item.Id, out var existing) && existing.Path == item.AssetPath)
         {
             existing.Target = target;
-            if (existing.Playback is { } state) target.Source = state.Animation.Frames[state.FrameIndex].Image;
+            if (existing.Playback is { } state) target.Source = GetDisplayImageSource(state.Animation.Frames[state.FrameIndex].Image);
             return existing.Loading;
         }
         var binding = new GifBinding(item.AssetPath, target);
@@ -83,7 +83,7 @@ public partial class BoardWindow
                     binding.Playback.Seek(saved.FrameIndex);
                     binding.Playback.SetPlaying(saved.IsPlaying);
                 }
-                binding.Target.Source = animation.Frames[binding.Playback.FrameIndex].Image;
+                binding.Target.Source = GetDisplayImageSource(animation.Frames[binding.Playback.FrameIndex].Image);
                 if (!_gifTimer.IsEnabled)
                 {
                     _gifLastTick = Stopwatch.GetTimestamp();
@@ -145,7 +145,7 @@ public partial class BoardWindow
     private void RefreshSelectedGif()
     {
         if (SelectedToolbarImage() is { } item && _gifBindings.TryGetValue(item.Id, out var binding) && binding.Playback is { } state)
-            binding.Target.Source = state.Animation.Frames[state.FrameIndex].Image;
+            binding.Target.Source = GetDisplayImageSource(state.Animation.Frames[state.FrameIndex].Image);
         UpdateGifToolbar();
         QueueGifStateSave();
     }

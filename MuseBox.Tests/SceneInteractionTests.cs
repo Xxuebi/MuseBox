@@ -18,15 +18,16 @@ internal static partial class Program
     private sealed class TestSceneDialogs : ISceneDialogs
     {
         public Queue<string?> SavePaths { get; } = new();
+        public Queue<string?> ExportPngPaths { get; } = new();
         public List<string> SuggestedNames { get; } = new();
         public Queue<int> Choices { get; } = new();
         public List<string> Errors { get; } = new();
-        public string? OpenFile(Window owner) => null;
         public string? SaveFile(Window owner, string name, bool saveAs)
         {
             SuggestedNames.Add(name);
             return SavePaths.Dequeue();
         }
+        public string? SaveExportPng(Window owner, string filename) => ExportPngPaths.Count > 0 ? ExportPngPaths.Dequeue() : null;
         public int Choose(Window owner, string title, string message, string primary, string alternative) => Choices.Dequeue();
         public void Inform(Window owner, string title, string message) => Errors.Add(title + ": " + message);
     }

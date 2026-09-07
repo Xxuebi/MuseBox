@@ -457,7 +457,9 @@ internal static partial class Program
     private static void BoardShortcutMasterSwitch() => WithDrawingBoard((window, _) =>
     {
         foreach (var definition in BoardShortcutCatalog.Definitions)
-            True(BoardShortcutCatalog.TryParse(definition.DefaultGesture, out var parsed), $"默认按键 {definition.DefaultGesture} 无法解析");
+            True(string.IsNullOrEmpty(definition.DefaultGesture) ||
+                 BoardShortcutCatalog.TryParse(definition.DefaultGesture, out var parsed),
+                $"默认按键 {definition.DefaultGesture} 无法解析");
         Equal("B", BoardShortcutCatalog.Format(System.Windows.Input.Key.B, System.Windows.Input.ModifierKeys.None));
         CallDrawing(window, "ApplyBoardShortcuts", BoardShortcutCatalog.CreateDefaults());
         var handle = new System.Windows.Interop.WindowInteropHelper(window).EnsureHandle();

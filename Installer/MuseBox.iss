@@ -1,5 +1,5 @@
 #define MyAppName "MuseBox"
-#define MyAppVersion "1.1.21"
+#define MyAppVersion "1.1.26"
 #define MyAppPublisher "MuseBox"
 #define MyAppExeName "MuseBox.exe"
 

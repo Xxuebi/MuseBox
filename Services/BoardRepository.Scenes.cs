@@ -27,7 +27,7 @@ public sealed partial class BoardRepository
             {
                 "drawers" => new[] { "display_name" },
                 "viewports" => new[] { "pan_x", "pan_y", "zoom", "window_left", "window_top", "window_width", "window_height", "topmost",
-                    "background_color", "window_opacity", "opacity_affects_images", "show_window_frame" },
+                    "background_color", "window_opacity", "opacity_affects_images", "show_window_frame", "grid_style", "grid_spacing", "snap_to_grid" },
                 "gif_states" => new[] { "speed", "is_playing" },
                 _ => Array.Empty<string>()
             };
@@ -40,6 +40,8 @@ public sealed partial class BoardRepository
                 var when = operation == "UPDATE" && columns.Length > 0
                     ? string.Join(" OR ", columns.Select(c => $"OLD.{c} IS NOT NEW.{c}")) : "1";
                 if (table == "gif_states" && operation == "UPDATE") when += " OR (NEW.is_playing=0 AND OLD.frame_index IS NOT NEW.frame_index)";
+                command.CommandText = $"DROP TRIGGER IF EXISTS scene_{table}_{operation.ToLowerInvariant()}";
+                await command.ExecuteNonQueryAsync(token);
                 command.CommandText = $"""
                     CREATE TRIGGER IF NOT EXISTS scene_{table}_{operation.ToLowerInvariant()}
                     AFTER {operation} ON {table} WHEN ({when}) AND EXISTS(SELECT 1 FROM drawers WHERE id={id})
@@ -125,7 +127,8 @@ public sealed partial class BoardRepository
                 SELECT pan_x PanX,pan_y PanY,zoom Zoom,window_left WindowLeft,window_top WindowTop,
                     window_width WindowWidth,window_height WindowHeight,topmost Topmost,background_color BackgroundColor,
                     window_opacity WindowOpacity,opacity_affects_images OpacityAffectsImages,
-                    show_window_frame ShowWindowFrame FROM viewports WHERE drawer_id=$id
+                    show_window_frame ShowWindowFrame,grid_style GridStyle,grid_spacing GridSpacing,
+                    snap_to_grid SnapToGrid FROM viewports WHERE drawer_id=$id
                 """, drawerId, cancellationToken)).SingleOrDefault() ?? new();
             using var cover = connection.CreateCommand();
             cover.Transaction = transaction;

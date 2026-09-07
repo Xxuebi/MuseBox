@@ -294,8 +294,8 @@ public partial class BoardWindow
         var visual = new Border
         {
             Tag = new GroupBackgroundTag(group.Id),
-            Background = ParseBrush(group.BackgroundColor, Brushes.Transparent),
-            BorderBrush = ParseBrush(group.BorderColor, Brushes.Transparent),
+            Background = ParseDisplayBrush(group.BackgroundColor, Brushes.Transparent),
+            BorderBrush = ParseDisplayBrush(group.BorderColor, Brushes.Transparent),
             BorderThickness = new Thickness(Math.Clamp(group.BorderThickness, 0, 10000)),
             CornerRadius = new CornerRadius(9),
             Cursor = Cursors.SizeAll,
@@ -337,8 +337,8 @@ public partial class BoardWindow
         // Group chrome must never cover any board element. Child group backgrounds
         // remain above their parents, while every real element stays at Z >= 0.
         Panel.SetZIndex(visual, -BoardLayerTreeService.MaxDepth - 2 + GroupDepth(groupId));
-        visual.Background = ParseBrush(group.BackgroundColor, Brushes.Transparent);
-        visual.BorderBrush = ParseBrush(group.BorderColor, Brushes.Transparent);
+        visual.Background = ParseDisplayBrush(group.BackgroundColor, Brushes.Transparent);
+        visual.BorderBrush = ParseDisplayBrush(group.BorderColor, Brushes.Transparent);
         visual.BorderThickness = new Thickness(Math.Clamp(group.BorderThickness, 0, 10000));
         visual.Visibility = group.BackgroundVisible ? Visibility.Visible : Visibility.Collapsed;
     }

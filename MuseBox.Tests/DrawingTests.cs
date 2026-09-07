@@ -255,8 +255,10 @@ internal static partial class Program
 
     private static void DrawingToolbarLayout() => WithDrawingBoard((window, _) =>
     {
-        Equal("1.1.21", typeof(BoardWindow).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion);
+        var boardAssembly = typeof(BoardWindow).Assembly;
+        Equal(boardAssembly.GetName().Version!.ToString(3),
+            boardAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+                .InformationalVersion);
         True(!Enum.GetNames<BoardToolMode>().Contains("Highlighter"), "仍然有第二种笔工具");
         CallDrawing(window, "SetToolMode", BoardToolMode.Pen);
         var palette = (Border)window.FindName("DrawingPalette");

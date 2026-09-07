@@ -43,16 +43,16 @@ internal static partial class Program
         True(MainDrawers(window).All(x => x.LetterVisibility == Visibility.Collapsed), "新增抽屉未沿用隐藏字母设置");
         SaveDrawingTestVisual(content, "drawer-no-letters.png", false);
         var menu = (DrawerMenuPopup)MainCall(window, "CreateDrawerMenu", MainDrawers(window).Last())!;
-        Equal(7, menu.Actions.Children.Count);
-        Equal("打开,保存,另存为,重命名,设置封面,删除抽屉", string.Join(',', menu.Actions.Children.OfType<Button>().Select(System.Windows.Automation.AutomationProperties.GetName)));
+        Equal(8, menu.Actions.Children.Count);
+        Equal("打开画板,保存,另存为,导出所有图像,重命名,设置封面,删除抽屉", string.Join(',', menu.Actions.Children.OfType<Button>().Select(System.Windows.Automation.AutomationProperties.GetName)));
         True(menu.Child.Effect is System.Windows.Media.Effects.DropShadowEffect, "菜单阴影丢失");
         SaveDrawingTestVisual((FrameworkElement)menu.Child, "drawer-settings-menu.png");
-        ((Button)menu.Actions.Children[4]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        ((Button)menu.Actions.Children[5]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         True(MainDrawers(window).Last().IsEditing, "菜单重命名没有进入编辑状态");
         AwaitMainTask(window, "SaveDrawerNameAsync", MainDrawers(window).Last().Id, "新的名称");
         Equal("新的名称", repository.GetDrawersAsync().GetAwaiter().GetResult().Last().DisplayName);
         var protectedMenu = (DrawerMenuPopup)MainCall(window, "CreateDrawerMenu", MainDrawers(window)[0])!;
-        True(!protectedMenu.Actions.Children[6].IsEnabled, "保留抽屉 A 的删除保护丢失");
+        True(!protectedMenu.Actions.Children[7].IsEnabled, "保留抽屉 A 的删除保护丢失");
         Equal(420d, ((DispatcherTimer)typeof(MainWindow).GetField("_drawerHoldTimer", PrivateInstance)!.GetValue(window)!).Interval.TotalMilliseconds);
     });
 

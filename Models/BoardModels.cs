@@ -134,6 +134,13 @@ public sealed class BoardDrawingItem : BoardElement
     public override BoardElement CloneElement() => Clone();
 }
 
+public enum BoardGridStyle
+{
+    None,
+    Lines,
+    Dots
+}
+
 public sealed class BoardViewport
 {
     public string DrawerId { get; set; } = "A";
@@ -149,6 +156,9 @@ public sealed class BoardViewport
     public double WindowOpacity { get; set; } = 1;
     public bool OpacityAffectsImages { get; set; }
     public bool ShowWindowFrame { get; set; } = true;
+    public BoardGridStyle GridStyle { get; set; }
+    public double GridSpacing { get; set; } = 32;
+    public bool SnapToGrid { get; set; }
 }
 
 public sealed record ImportedAsset(AssetRecord Asset, string FullPath);

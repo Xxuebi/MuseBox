@@ -99,7 +99,10 @@ public sealed partial class BoardRepository : IBoardRepository
                     background_color TEXT NOT NULL DEFAULT '#7A7A7A',
                     window_opacity REAL NOT NULL DEFAULT 1,
                     opacity_affects_images INTEGER NOT NULL DEFAULT 0,
-                    show_window_frame INTEGER NOT NULL DEFAULT 1
+                    show_window_frame INTEGER NOT NULL DEFAULT 1,
+                    grid_style INTEGER NOT NULL DEFAULT 0,
+                    grid_spacing REAL NOT NULL DEFAULT 32,
+                    snap_to_grid INTEGER NOT NULL DEFAULT 0
                 );
                 INSERT OR IGNORE INTO drawers(id, sort_order, created_utc)
                 VALUES
@@ -152,6 +155,12 @@ public sealed partial class BoardRepository : IBoardRepository
                 "ALTER TABLE viewports ADD COLUMN opacity_affects_images INTEGER NOT NULL DEFAULT 0", cancellationToken);
             await EnsureColumnAsync(connection, "viewports", "show_window_frame",
                 "ALTER TABLE viewports ADD COLUMN show_window_frame INTEGER NOT NULL DEFAULT 1", cancellationToken);
+            await EnsureColumnAsync(connection, "viewports", "grid_style",
+                "ALTER TABLE viewports ADD COLUMN grid_style INTEGER NOT NULL DEFAULT 0", cancellationToken);
+            await EnsureColumnAsync(connection, "viewports", "grid_spacing",
+                "ALTER TABLE viewports ADD COLUMN grid_spacing REAL NOT NULL DEFAULT 32", cancellationToken);
+            await EnsureColumnAsync(connection, "viewports", "snap_to_grid",
+                "ALTER TABLE viewports ADD COLUMN snap_to_grid INTEGER NOT NULL DEFAULT 0", cancellationToken);
             await EnsureColumnAsync(connection, "items", "rotation",
                 "ALTER TABLE items ADD COLUMN rotation REAL NOT NULL DEFAULT 0", cancellationToken);
             await InitializeLayerTreeAsync(connection, cancellationToken);
@@ -874,7 +883,7 @@ public sealed partial class BoardRepository : IBoardRepository
         {
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame FROM viewports WHERE drawer_id=$id";
+            command.CommandText = "SELECT pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid FROM viewports WHERE drawer_id=$id";
             command.Parameters.AddWithValue("$id", drawerId);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken)) return new BoardViewport { DrawerId = drawerId };
@@ -888,7 +897,11 @@ public sealed partial class BoardRepository : IBoardRepository
                 BackgroundColor = reader.GetString(8),
                 WindowOpacity = reader.GetDouble(9),
                 OpacityAffectsImages = reader.GetBoolean(10),
-                ShowWindowFrame = reader.GetBoolean(11)
+                ShowWindowFrame = reader.GetBoolean(11),
+                GridStyle = Enum.IsDefined(typeof(BoardGridStyle), reader.GetInt32(12))
+                    ? (BoardGridStyle)reader.GetInt32(12) : BoardGridStyle.None,
+                GridSpacing = reader.GetDouble(13),
+                SnapToGrid = reader.GetBoolean(14)
             };
         }
         finally { _gate.Release(); }
@@ -902,11 +915,12 @@ public sealed partial class BoardRepository : IBoardRepository
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame)
-                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affectImages,$showFrame)
+                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid)
+                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affectImages,$showFrame,$gridStyle,$gridSpacing,$snap)
                 ON CONFLICT(drawer_id) DO UPDATE SET pan_x=$x,pan_y=$y,zoom=$zoom,window_left=$left,
                     window_top=$top,window_width=$width,window_height=$height,topmost=$pin,
-                    background_color=$background,window_opacity=$opacity,opacity_affects_images=$affectImages,show_window_frame=$showFrame
+                    background_color=$background,window_opacity=$opacity,opacity_affects_images=$affectImages,show_window_frame=$showFrame,
+                    grid_style=$gridStyle,grid_spacing=$gridSpacing,snap_to_grid=$snap
                 """;
             command.Parameters.AddWithValue("$id", viewport.DrawerId);
             command.Parameters.AddWithValue("$x", viewport.PanX);
@@ -921,6 +935,9 @@ public sealed partial class BoardRepository : IBoardRepository
             command.Parameters.AddWithValue("$opacity", viewport.WindowOpacity);
             command.Parameters.AddWithValue("$affectImages", viewport.OpacityAffectsImages);
             command.Parameters.AddWithValue("$showFrame", viewport.ShowWindowFrame);
+            command.Parameters.AddWithValue("$gridStyle", (int)viewport.GridStyle);
+            command.Parameters.AddWithValue("$gridSpacing", viewport.GridSpacing);
+            command.Parameters.AddWithValue("$snap", viewport.SnapToGrid);
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
         finally { _gate.Release(); }

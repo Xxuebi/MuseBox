@@ -15,12 +15,16 @@ namespace ScreenshotCollector.Services;
 // non-interactive snapshot supplies the exit animation without intercepting clicks.
 public static class PopupTransitions
 {
+    public static readonly DependencyProperty ExitEnabledProperty = DependencyProperty.RegisterAttached(
+        "ExitEnabled", typeof(bool), typeof(PopupTransitions), new PropertyMetadata(true));
     public static readonly DependencyProperty EnabledProperty = DependencyProperty.RegisterAttached(
         "Enabled", typeof(bool), typeof(PopupTransitions), new PropertyMetadata(false, OnEnabledChanged));
     private static readonly DependencyProperty StateProperty = DependencyProperty.RegisterAttached(
         "State", typeof(State), typeof(PopupTransitions));
     public static readonly DependencyProperty PanelPlacementProperty = DependencyProperty.RegisterAttached(
         "PanelPlacement", typeof(PlacementMode), typeof(PopupTransitions), new PropertyMetadata(PlacementMode.Bottom));
+    public static void SetExitEnabled(DependencyObject element, bool value) => element.SetValue(ExitEnabledProperty, value);
+    public static bool GetExitEnabled(DependencyObject element) => (bool)element.GetValue(ExitEnabledProperty);
     public static void SetPanelPlacement(DependencyObject element, PlacementMode value) => element.SetValue(PanelPlacementProperty, value);
     public static void SetEnabled(DependencyObject element, bool value) => element.SetValue(EnabledProperty, value);
     public static bool GetEnabled(DependencyObject element) => (bool)element.GetValue(EnabledProperty);
@@ -185,7 +189,7 @@ public static class PopupTransitions
             if (message == 0x0046 && lParam != IntPtr.Zero && (Marshal.PtrToStructure<WindowPosition>(lParam).Flags & 0x80) != 0)
             {
                 _preparedBeforeNativeHide = true;
-                if (owner is not ContextMenu) PrepareExit();
+                if (owner is not ContextMenu && GetExitEnabled(owner)) PrepareExit();
             }
             return IntPtr.Zero;
         }
@@ -207,7 +211,7 @@ public static class PopupTransitions
                 _preparedBeforeNativeHide = true;
                 StopGhost();
             }
-            else if (!_preparedBeforeNativeHide) PrepareExit();
+            else if (GetExitEnabled(owner) && !_preparedBeforeNativeHide) PrepareExit();
             DetachSource();
             var root = _root;
             if (root is null) return;

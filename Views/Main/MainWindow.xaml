@@ -16,7 +16,8 @@
         WindowStartupLocation="CenterScreen"
         Background="Transparent"
         Foreground="{DynamicResource TextBrush}"
-        UseLayoutRounding="True">
+        UseLayoutRounding="True"
+        AllowDrop="True" DragOver="OnMainWindowDragOver" Drop="OnMainWindowDrop">
     <Window.Resources>
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Width" Value="30" />

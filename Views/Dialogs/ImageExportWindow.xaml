@@ -1,0 +1,169 @@
+<Window x:Class="ScreenshotCollector.ImageExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="导出图像" Width="620" Height="448" MinWidth="620" MinHeight="448"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize"
+        Background="Transparent" Foreground="{DynamicResource TextBrush}"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        UseLayoutRounding="True" PreviewKeyDown="OnPreviewKeyDown">
+    <Window.Resources>
+        <Style x:Key="RoundInput" TargetType="TextBox">
+            <Setter Property="Height" Value="36" /><Setter Property="Padding" Value="11,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
+                <Border x:Name="InputChrome" Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="8" SnapsToDevicePixels="True">
+                    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                        <Setter TargetName="InputChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="RoundComboItem" TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" /><Setter Property="Padding" Value="10,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+                <Border x:Name="ItemChrome" Margin="1" Padding="{TemplateBinding Padding}" Background="Transparent" CornerRadius="6">
+                    <ContentPresenter VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource SubtleBrush}" /></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentSubtleBrush}" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="RoundCombo" TargetType="ComboBox">
+            <Setter Property="Height" Value="36" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" /><Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="MaxDropDownHeight" Value="220" /><Setter Property="ItemContainerStyle" Value="{StaticResource RoundComboItem}" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+                <Grid x:Name="ComboRoot">
+                    <Border x:Name="ComboChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" />
+                    <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press" Background="Transparent"
+                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                        <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+                            <Border Background="Transparent" CornerRadius="8">
+                                <Path Width="8" Height="5" Margin="0,0,11,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                      Stroke="{DynamicResource TextBrush}" StrokeThickness="1.6" StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round" Data="M0,0 L4,4 L8,0" />
+                            </Border>
+                        </ControlTemplate></ToggleButton.Template>
+                    </ToggleButton>
+                    <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Margin="11,0,34,0"
+                                      HorizontalAlignment="Left" VerticalAlignment="Center"
+                                      Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+                    <TextBox x:Name="PART_EditableTextBox" Visibility="Hidden" Margin="10,1,34,1" Padding="0"
+                             VerticalContentAlignment="Center" Background="Transparent" BorderThickness="0"
+                             Foreground="{TemplateBinding Foreground}" CaretBrush="{DynamicResource TextBrush}" />
+                    <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                           PopupAnimation="Fade" IsOpen="{TemplateBinding IsDropDownOpen}">
+                        <Border MinWidth="{Binding ActualWidth, ElementName=ComboRoot}" Margin="0,5,0,0" Padding="4"
+                                MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="{DynamicResource CardBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="9">
+                            <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.18" /></Border.Effect>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsPresenter /></ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsEditable" Value="True">
+                        <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                    </Trigger>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ComboChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboChrome" Property="Background" Value="{DynamicResource SubtleBrush}" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="SmallIconButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Width" Value="36" /><Setter Property="MinWidth" Value="36" />
+            <Setter Property="Height" Value="36" /><Setter Property="MinHeight" Value="36" /><Setter Property="Padding" Value="0" />
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="8" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource WindowBorderBrush}"
+            BorderThickness="1" CornerRadius="15" SnapsToDevicePixels="True">
+        <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.22" /></Border.Effect>
+        <Grid Margin="20,10,20,18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42" /><RowDefinition Height="12" /><RowDefinition Height="36" />
+                <RowDefinition Height="12" /><RowDefinition Height="36" /><RowDefinition Height="12" />
+                <RowDefinition Height="36" /><RowDefinition Height="9" /><RowDefinition Height="Auto" />
+                <RowDefinition Height="14" /><RowDefinition Height="Auto" /><RowDefinition Height="*" />
+                <RowDefinition Height="40" />
+            </Grid.RowDefinitions>
+
+            <Grid x:Name="HeaderDragRegion" Grid.Row="0" Margin="-7,-3,-7,0" Background="Transparent" MouseLeftButtonDown="OnHeaderDrag">
+                <TextBlock Text="导出图像" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
+                <Button HorizontalAlignment="Right" Width="30" Height="30" MinWidth="30" MinHeight="30" Padding="0"
+                        Style="{StaticResource ModernButton}" ToolTip="取消并关闭" Click="OnCancelClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="11" Text="&#xE8BB;" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
+                <TextBlock Text="保存位置" VerticalAlignment="Center" />
+                <TextBox x:Name="DirectoryInput" Grid.Column="1" Style="{StaticResource RoundInput}" />
+                <Button Grid.Column="2" Margin="6,0,0,0" Style="{StaticResource SmallIconButton}" ToolTip="清除保存位置" Click="OnClearDirectoryClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="10" Text="&#xE894;" />
+                </Button>
+                <Button Grid.Column="3" Margin="6,0,0,0" Style="{StaticResource SmallIconButton}" ToolTip="浏览文件夹" Click="OnBrowseClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE8B7;" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <TextBlock Text="格式" VerticalAlignment="Center" />
+                <ComboBox x:Name="FormatInput" Grid.Column="1" Style="{StaticResource RoundCombo}"
+                          DisplayMemberPath="Label" SelectionChanged="OnInputChanged" />
+                <TextBlock x:Name="FormatHint" Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MutedTextBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
+            </Grid>
+
+            <Grid Grid.Row="6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="84" /><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
+                <TextBlock Text="命名" VerticalAlignment="Center" />
+                <ComboBox x:Name="TemplateInput" Grid.Column="1" Style="{StaticResource RoundCombo}" IsEditable="True"
+                          IsTextSearchEnabled="False" StaysOpenOnEdit="True" DropDownClosed="OnInputChanged" />
+                <Button Grid.Column="2" Margin="6,0,0,0" Style="{StaticResource SmallIconButton}" ToolTip="清除命名模板" Click="OnClearTemplateClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="10" Text="&#xE894;" />
+                </Button>
+            </Grid>
+
+            <Border Grid.Row="8" Margin="84,0,0,0" Padding="10,8" Background="{DynamicResource SubtleBrush}" CornerRadius="8">
+                <TextBlock FontSize="12" Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap"
+                           Text="%n 名称　%i 序号　%02i 补零　%s 场景　%d 日期　%t 时间　%e 类型　%% 百分号" />
+            </Border>
+
+            <StackPanel Grid.Row="10" Margin="84,0,0,0">
+                <TextBlock Text="预览" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" />
+                <Border Margin="0,5,0,0" Padding="11,9" Background="{DynamicResource InputBrush}"
+                        BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8">
+                    <TextBlock x:Name="PreviewText" TextWrapping="Wrap" />
+                </Border>
+                <TextBlock x:Name="MixedFormatHint" Visibility="Collapsed" Margin="0,6,0,0" FontSize="12"
+                           Foreground="{DynamicResource MutedTextBrush}" Text="其他图片可能使用不同扩展名。" />
+                <TextBlock x:Name="ExportStatus" Visibility="Collapsed" Margin="0,7,0,0" FontSize="12"
+                           Foreground="{DynamicResource DangerTextBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="12" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="取消" MinWidth="88" Margin="0,0,10,0" Style="{StaticResource ModernButton}" Click="OnCancelClick" />
+                <Button x:Name="ExportButton" Content="导出" MinWidth="96" Style="{StaticResource AccentButton}" Click="OnExportClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

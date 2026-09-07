@@ -375,9 +375,11 @@ public partial class SettingsWindow : Window
 
     private void BuildShortcutGroups()
     {
-        AddGroup("编辑", BoardShortcutCatalog.Undo, BoardShortcutCatalog.Redo, BoardShortcutCatalog.Paste, BoardShortcutCatalog.Delete);
-        AddGroup("画板视图", BoardShortcutCatalog.FitAll, BoardShortcutCatalog.BoardSettings,
-            BoardShortcutCatalog.ExitBoardMode);
+        AddGroup("编辑", BoardShortcutCatalog.Undo, BoardShortcutCatalog.Redo, BoardShortcutCatalog.Copy, BoardShortcutCatalog.Paste, BoardShortcutCatalog.Delete);
+        AddGroup("文件", BoardShortcutCatalog.Save, BoardShortcutCatalog.SaveAs);
+        AddGroup("画板视图", BoardShortcutCatalog.FitAll, BoardShortcutCatalog.ResetCamera,
+            BoardShortcutCatalog.ResetCameraZoom, BoardShortcutCatalog.ToggleGrayscale,
+            BoardShortcutCatalog.BoardSettings, BoardShortcutCatalog.ExitBoardMode);
         AddGroup("排列与组合", BoardShortcutCatalog.Arrange,
             BoardShortcutCatalog.Group, BoardShortcutCatalog.Ungroup);
         AddGroup("层级", BoardShortcutCatalog.BringForward, BoardShortcutCatalog.SendBackward,

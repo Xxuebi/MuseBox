@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using ScreenshotCollector.Models;
+using ScreenshotCollector.Services;
 
 namespace ScreenshotCollector;
 
@@ -11,6 +12,20 @@ public partial class BoardWindow
     private Task _gifStateSave = Task.CompletedTask;
     private readonly Dictionary<string, GifSceneState> _savedGifStates = new();
     public bool HasPendingSceneEdit => _activeTextEditor is not null || _previewDrawing is not null || _imageEditBusy;
+
+    private async void OnBoardSaveSceneClick(object sender, RoutedEventArgs e)
+        => await ((App)Application.Current).CollectorWindow.SaveSceneAsync(_drawerId, false, this);
+    private async void OnBoardSaveSceneAsClick(object sender, RoutedEventArgs e)
+        => await ((App)Application.Current).CollectorWindow.SaveSceneAsync(_drawerId, true, this);
+    private async void OnBoardExportClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string action }) return;
+        var selected = action.StartsWith("Selected", StringComparison.Ordinal)
+            ? _selected.ToHashSet(StringComparer.Ordinal) : null;
+        var mode = action.EndsWith("Originals", StringComparison.Ordinal)
+            ? BoardExportMode.IndividualFiles : BoardExportMode.CompositePng;
+        await ((App)Application.Current).CollectorWindow.ExportBoardAsync(_drawerId, selected, mode, this);
+    }
 
     public async Task<IDisposable> PrepareSceneAsync()
     {

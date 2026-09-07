@@ -12,6 +12,7 @@ public static class SceneThumbnailRenderer
 {
     public const int Edge = 512;
     private const float CanvasPadding = 24;
+    public sealed record CompositeRender(byte[] Png, int PixelWidth, int PixelHeight, bool WasScaledDown);
 
     public static byte[] Render(SceneSnapshot snapshot)
     {
@@ -30,7 +31,7 @@ public static class SceneThumbnailRenderer
             .OrderBy(element => element.ZIndex)
             .ThenBy(element => element.Id, StringComparer.Ordinal)
             .ToArray();
-        var bounds = ContentBounds(elements, snapshot.Document.Groups, snapshot.Document.Viewport);
+        var bounds = ContentBounds(elements, snapshot.Document.Groups, snapshot.Document.Viewport, true);
         var scale = Math.Min((Edge - CanvasPadding * 2) / (float)bounds.Width,
             (Edge - CanvasPadding * 2) / (float)bounds.Height);
         if (!float.IsFinite(scale) || scale <= 0) scale = 1;
@@ -67,10 +68,53 @@ public static class SceneThumbnailRenderer
         return encoded.ToArray();
     }
 
-    private static void DrawGroupBackgrounds(Graphics graphics, IReadOnlyList<BoardElement> elements,
-        IReadOnlyList<BoardGroup> groups)
+    public static CompositeRender RenderComposite(SceneSnapshot snapshot, IReadOnlySet<string>? selectedIds = null)
     {
-        var map = groups.ToDictionary(group => group.Id, StringComparer.Ordinal);
+        var allElements = snapshot.Document.Images.Cast<BoardElement>()
+            .Concat(snapshot.Document.Texts).Concat(snapshot.Document.Drawings).ToArray();
+        var elements = allElements.Where(element => selectedIds is null || selectedIds.Contains(element.Id))
+            .OrderBy(element => element.ZIndex).ThenBy(element => element.Id, StringComparer.Ordinal).ToArray();
+        if (elements.Length == 0) throw new InvalidOperationException("当前范围内没有可导出的内容。");
+        var groups = snapshot.Document.Groups.Where(group =>
+        {
+            if (!group.BackgroundVisible) return false;
+            var descendants = BoardLayerTreeService.DescendantElements(group.Id, snapshot.Document.Groups, allElements).ToArray();
+            return selectedIds is null || descendants.Length > 0 && descendants.All(element => selectedIds.Contains(element.Id));
+        }).ToArray();
+        var bounds = ContentBounds(elements, groups, snapshot.Document.Viewport, false, snapshot.Document.Groups);
+        var requestedScale = 2d;
+        var scale = Math.Min(requestedScale, Math.Min(16384d / bounds.Width, 16384d / bounds.Height));
+        scale = Math.Min(scale, Math.Sqrt(100_000_000d / (bounds.Width * bounds.Height)));
+        if (!double.IsFinite(scale) || scale <= 0) scale = 1;
+        var width = Math.Clamp((int)Math.Ceiling(bounds.Width * scale), 1, 16384);
+        var height = Math.Clamp((int)Math.Ceiling(bounds.Height * scale), 1, 16384);
+        using var bitmap = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
+        bitmap.SetResolution(192, 192);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        graphics.CompositingQuality = CompositingQuality.HighQuality;
+        graphics.Clear(DrawingColor.Transparent);
+        graphics.ScaleTransform((float)scale, (float)scale);
+        graphics.TranslateTransform((float)-bounds.Left, (float)-bounds.Top);
+        DrawGroupBackgrounds(graphics, elements, groups, snapshot.Document.Groups);
+        foreach (var element in elements)
+        {
+            if (element is BoardItem image) DrawImage(graphics, image, snapshot, snapshot.Document.Viewport);
+            else if (element is BoardTextItem text) DrawText(graphics, text);
+            else if (element is BoardDrawingItem drawing) DrawDrawing(graphics, drawing);
+        }
+        using var encoded = new MemoryStream();
+        bitmap.Save(encoded, ImageFormat.Png);
+        return new CompositeRender(encoded.ToArray(), width, height, scale < requestedScale - .0001);
+    }
+
+    private static void DrawGroupBackgrounds(Graphics graphics, IReadOnlyList<BoardElement> elements,
+        IReadOnlyList<BoardGroup> groups, IReadOnlyList<BoardGroup>? hierarchyGroups = null)
+    {
+        hierarchyGroups ??= groups;
+        var map = hierarchyGroups.ToDictionary(group => group.Id, StringComparer.Ordinal);
         int Depth(BoardGroup group)
         {
             var depth = 0;
@@ -78,11 +122,11 @@ public static class SceneThumbnailRenderer
             while (current.ParentGroupId.Length > 0 && map.TryGetValue(current.ParentGroupId, out current!)) depth++;
             return depth;
         }
-        foreach (var group in groups.OrderBy(group => BoardLayerTreeService.DescendantElements(group.Id, groups, elements)
+        foreach (var group in groups.OrderBy(group => BoardLayerTreeService.DescendantElements(group.Id, hierarchyGroups, elements)
                          .Select(element => element.ZIndex).DefaultIfEmpty(int.MaxValue).Min()).ThenBy(Depth))
         {
             if (!group.BackgroundVisible) continue;
-            var rectangle = GroupRectangle(group.Id, groups, elements);
+            var rectangle = GroupRectangle(group.Id, hierarchyGroups, elements);
             if (rectangle.IsEmpty) continue;
             using var fill = new SolidBrush(BoardColor(group.BackgroundColor, 1));
             using var pen = new Pen(BoardColor(group.BorderColor, 1),
@@ -115,8 +159,10 @@ public static class SceneThumbnailRenderer
     }
 
     private static RectangleF ContentBounds(IReadOnlyList<BoardElement> elements,
-        IReadOnlyList<BoardGroup> groups, BoardViewport viewport)
+        IReadOnlyList<BoardGroup> groups, BoardViewport viewport, bool addPadding,
+        IReadOnlyList<BoardGroup>? hierarchyGroups = null)
     {
+        hierarchyGroups ??= groups;
         if (elements.Count == 0)
         {
             var zoom = Math.Clamp(viewport.Zoom, .05, 8);
@@ -125,20 +171,22 @@ public static class SceneThumbnailRenderer
                 (float)Math.Max(240, viewport.WindowHeight / zoom));
         }
         var points = elements.SelectMany(RotatedCorners).ToList();
-        foreach (var group in groups)
+        foreach (var group in groups.Where(group => group.BackgroundVisible))
         {
-            var rectangle = GroupRectangle(group.Id, groups, elements);
+            var rectangle = GroupRectangle(group.Id, hierarchyGroups, elements);
             if (rectangle.IsEmpty) continue;
-            points.AddRange(new[] { new PointF(rectangle.Left, rectangle.Top), new PointF(rectangle.Right, rectangle.Top),
-                new PointF(rectangle.Right, rectangle.Bottom), new PointF(rectangle.Left, rectangle.Bottom) });
+            var stroke = (float)Math.Max(0, group.BorderThickness / 2);
+            points.AddRange(new[] { new PointF(rectangle.Left - stroke, rectangle.Top - stroke), new PointF(rectangle.Right + stroke, rectangle.Top - stroke),
+                new PointF(rectangle.Right + stroke, rectangle.Bottom + stroke), new PointF(rectangle.Left - stroke, rectangle.Bottom + stroke) });
         }
         var left = points.Min(point => point.X);
         var top = points.Min(point => point.Y);
         var right = points.Max(point => point.X);
         var bottom = points.Max(point => point.Y);
-        var width = Math.Max(16, right - left);
-        var height = Math.Max(16, bottom - top);
-        var padding = Math.Max(12, Math.Max(width, height) * .06);
+        var minimum = addPadding ? 16 : 1;
+        var width = Math.Max(minimum, right - left);
+        var height = Math.Max(minimum, bottom - top);
+        var padding = addPadding ? Math.Max(12, Math.Max(width, height) * .06) : 0;
         return new RectangleF((float)(left - padding), (float)(top - padding),
             (float)(width + padding * 2), (float)(height + padding * 2));
     }
@@ -194,7 +242,8 @@ public static class SceneThumbnailRenderer
     private static void DrawImage(Graphics graphics, BoardItem item, SceneSnapshot snapshot, BoardViewport viewport)
     {
         if (!snapshot.AssetPaths.TryGetValue(item.AssetId, out var path) || !File.Exists(path)) return;
-        using var source = Image.FromFile(path);
+        using Image source = GifAnimationService.IsGif(path) && snapshot.Document.Gifs.FirstOrDefault(state => state.ItemId == item.Id) is { } gif
+            ? GifAnimationService.ExtractFrame(path, gif.FrameIndex) : Image.FromFile(path);
         var state = BeginElement(graphics, item);
         try
         {
@@ -219,6 +268,12 @@ public static class SceneThumbnailRenderer
         {
             using var background = new SolidBrush(BoardColor(item.BackgroundColor, 1));
             graphics.FillRectangle(background, 0, 0, (float)item.Width, (float)item.Height);
+            using var richText = RenderRichText(item);
+            if (richText is not null)
+            {
+                graphics.DrawImage(richText, new RectangleF(0, 0, (float)item.Width, (float)item.Height));
+                return;
+            }
             var text = PlainText(item.DocumentData);
             if (string.IsNullOrWhiteSpace(text)) return;
             var fontSize = (float)Math.Clamp(item.Height * .18, 9, 28);
@@ -229,6 +284,34 @@ public static class SceneThumbnailRenderer
                 new RectangleF(5, 4, (float)Math.Max(1, item.Width - 10), (float)Math.Max(1, item.Height - 8)), format);
         }
         finally { graphics.Restore(state); }
+    }
+
+    private static Bitmap? RenderRichText(BoardTextItem item)
+    {
+        if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA) return null;
+        var width = Math.Max(1, (int)Math.Ceiling(item.Width * 2));
+        var height = Math.Max(1, (int)Math.Ceiling(item.Height * 2));
+        var editor = new System.Windows.Controls.RichTextBox
+        {
+            Document = RichTextDocumentService.Load(item.DocumentData), IsReadOnly = true,
+            BorderThickness = new System.Windows.Thickness(0), Background = System.Windows.Media.Brushes.Transparent,
+            VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Hidden,
+            HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Hidden,
+            Focusable = false, IsHitTestVisible = false, Width = item.Width, Height = item.Height
+        };
+        editor.Measure(new System.Windows.Size(item.Width, item.Height));
+        editor.Arrange(new System.Windows.Rect(0, 0, item.Width, item.Height));
+        editor.UpdateLayout();
+        var target = new System.Windows.Media.Imaging.RenderTargetBitmap(width, height, 192, 192,
+            System.Windows.Media.PixelFormats.Pbgra32);
+        target.Render(editor);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(target));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        stream.Position = 0;
+        using var loaded = new Bitmap(stream);
+        return new Bitmap(loaded);
     }
 
     private static string PlainText(string encoded)

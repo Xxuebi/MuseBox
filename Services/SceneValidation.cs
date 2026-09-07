@@ -89,7 +89,8 @@ public static class SceneValidation
         Require(Finite(v.PanX) && Finite(v.PanY) && Range(v.Zoom, .05, 8) &&
             (!v.WindowLeft.HasValue || Finite(v.WindowLeft.Value)) && (!v.WindowTop.HasValue || Finite(v.WindowTop.Value)) &&
             Range(v.WindowWidth, 1, 100000) && Range(v.WindowHeight, 1, 100000) &&
-            ValidColor(v.BackgroundColor) && Range(v.WindowOpacity, 0, 1), "画板设置无效");
+            ValidColor(v.BackgroundColor) && Range(v.WindowOpacity, 0, 1) &&
+            Enum.IsDefined(v.GridStyle) && Range(v.GridSpacing, 1, 100000), "画板设置无效");
         if (scene.Cover is { } cover)
         {
             Require(assets.ContainsKey(cover.SourceAssetId) && assets.ContainsKey(cover.PreviewAssetId) &&

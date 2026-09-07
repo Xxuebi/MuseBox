@@ -11,6 +11,7 @@ public sealed class BoardDrawingVisual : FrameworkElement
     private IReadOnlyList<BoardDrawingStroke> _strokes = Array.Empty<BoardDrawingStroke>();
     private DrawingGroup? _cachedDrawing;
     private Size _cachedSize;
+    private bool _grayscale;
 
     public BoardDrawingItem? Item
     {
@@ -19,6 +20,18 @@ public sealed class BoardDrawingVisual : FrameworkElement
         {
             _item = value;
             _strokes = value is null ? Array.Empty<BoardDrawingStroke>() : DrawingGroupService.Read(value);
+            _cachedDrawing = null;
+            InvalidateVisual();
+        }
+    }
+
+    public bool Grayscale
+    {
+        get => _grayscale;
+        set
+        {
+            if (_grayscale == value) return;
+            _grayscale = value;
             _cachedDrawing = null;
             InvalidateVisual();
         }
@@ -33,7 +46,7 @@ public sealed class BoardDrawingVisual : FrameworkElement
         {
             var group = new DrawingGroup();
             using (var drawing = group.Open())
-                foreach (var stroke in _strokes) DrawStroke(drawing, stroke, size);
+                foreach (var stroke in _strokes) DrawStroke(drawing, stroke, size, _grayscale);
             group.Freeze();
             _cachedDrawing = group;
             _cachedSize = size;
@@ -41,12 +54,12 @@ public sealed class BoardDrawingVisual : FrameworkElement
         context.DrawDrawing(_cachedDrawing);
     }
 
-    private static void DrawStroke(DrawingContext context, BoardDrawingStroke stroke, Size size)
+    private static void DrawStroke(DrawingContext context, BoardDrawingStroke stroke, Size size, bool grayscale)
     {
         var points = stroke.Points.Select(p => new Point(p.X * size.Width, p.Y * size.Height)).ToArray();
         if (points.Length == 0) return;
-        var brush = ParseBrush(stroke.StrokeColor, stroke.StrokeOpacity);
-        var fill = ParseBrush(stroke.FillColor, 1);
+        var brush = ParseBrush(stroke.StrokeColor, stroke.StrokeOpacity, grayscale);
+        var fill = ParseBrush(stroke.FillColor, 1, grayscale);
         var thickness = Math.Max(.5, stroke.StrokeThickness);
         if (stroke.Kind == BoardDrawingKind.CurveArrow)
         {
@@ -140,12 +153,17 @@ public sealed class BoardDrawingVisual : FrameworkElement
         return pen;
     }
 
-    private static Brush ParseBrush(string value, double opacity)
+    private static Brush ParseBrush(string value, double opacity, bool grayscale)
     {
         try
         {
             var color = (Color)ColorConverter.ConvertFromString(value);
             color.A = (byte)Math.Round(color.A * Math.Clamp(opacity, 0, 1));
+            if (grayscale)
+            {
+                var gray = (byte)Math.Clamp(Math.Round(.2126 * color.R + .7152 * color.G + .0722 * color.B), 0, 255);
+                color.R = color.G = color.B = gray;
+            }
             var brush = new SolidColorBrush(color);
             brush.Freeze();
             return brush;

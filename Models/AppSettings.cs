@@ -2,7 +2,7 @@ namespace ScreenshotCollector.Models;
 
 public sealed class AppSettings
 {
-    public int Version { get; set; } = 7;
+    public int Version { get; set; } = 8;
 
     public bool HotkeyEnabled { get; set; } = true;
 
@@ -36,6 +36,9 @@ public sealed class AppSettings
         BoardShortcutCatalog.CreateDefaults();
 
     public List<string> SavedColors { get; set; } = ["#000000", "#FFFFFF"];
+    public string ImageExportDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+    public ImageExportFormat ImageExportFormat { get; set; } = ImageExportFormat.Original;
+    public string ImageExportNamingTemplate { get; set; } = ImageExportOptions.DefaultTemplate;
 
     public AppSettings Copy() => new()
     {
@@ -59,7 +62,12 @@ public sealed class AppSettings
         BoardStoragePath = BoardStoragePath,
         PendingStorageMigrationFrom = PendingStorageMigrationFrom,
         BoardShortcuts = BoardShortcutCatalog.Merge(BoardShortcuts),
-        SavedColors = SavedColors?.ToList() ?? ["#000000", "#FFFFFF"]
+        SavedColors = SavedColors?.ToList() ?? ["#000000", "#FFFFFF"],
+        ImageExportDirectory = string.IsNullOrWhiteSpace(ImageExportDirectory)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) : ImageExportDirectory,
+        ImageExportFormat = Enum.IsDefined(ImageExportFormat) ? ImageExportFormat : ImageExportFormat.Original,
+        ImageExportNamingTemplate = string.IsNullOrWhiteSpace(ImageExportNamingTemplate)
+            ? ImageExportOptions.DefaultTemplate : ImageExportNamingTemplate
     };
 }
 

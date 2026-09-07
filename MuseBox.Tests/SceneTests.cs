@@ -64,7 +64,8 @@ internal static partial class Program
         repository.UpdateDrawerNameAsync("A", "场景测试").GetAwaiter().GetResult();
         repository.SaveViewportAsync(new BoardViewport { DrawerId = "A", BackgroundColor = "#FF123456", WindowOpacity = .73,
             OpacityAffectsImages = true, PanX = 140, PanY = -65, Zoom = 1.8, WindowLeft = -9000, WindowTop = -9000,
-            WindowWidth = 1250, WindowHeight = 800, Topmost = true, ShowWindowFrame = false }).GetAwaiter().GetResult();
+            WindowWidth = 1250, WindowHeight = 800, Topmost = true, ShowWindowFrame = false,
+            GridStyle = BoardGridStyle.Dots, GridSpacing = 32, SnapToGrid = true }).GetAwaiter().GetResult();
         var crop = new CoverCropState { Zoom = 1.5, FlipX = true };
         using var rendered = DrawerCoverRenderer.Render(DrawerCoverRenderer.Orient(DrawerCoverRenderer.Load(image.AssetPath), crop), crop);
         imports.SaveDrawerCoverAsync("A", image.AssetPath, rendered, crop).GetAwaiter().GetResult();
@@ -113,6 +114,9 @@ internal static partial class Program
             Equal(.73, result.Document.Viewport.WindowOpacity); Equal(1.8, result.Document.Viewport.Zoom);
             True(result.Document.Viewport.OpacityAffectsImages && result.Document.Viewport.Topmost, "画板设置丢失");
             True(!result.Document.Viewport.ShowWindowFrame, "场景往返后画板边框和阴影设置丢失");
+            True(result.Document.Viewport.GridStyle == BoardGridStyle.Dots &&
+                 result.Document.Viewport.GridSpacing == 32 && result.Document.Viewport.SnapToGrid,
+                "场景往返后网格设置丢失");
             var images = target.GetItemsAsync(id).GetAwaiter().GetResult();
             True(images.All(i => File.Exists(i.AssetPath) && i.AssetPath.StartsWith(Path.Combine(root, "target"))), "资源仍依赖旧电脑");
             var migrated = images.Single(i => i.WebLink.Length > 0);
@@ -264,7 +268,7 @@ internal static partial class Program
         using var service = new SceneActivationService(paths => received.TrySetResult(paths), pipe);
         service.Start();
         var path = Path.Combine(Path.GetTempPath(), "场景 含空格.mubo");
-        var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "ScreenshotCollector.Tests.exe"))
+        var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, typeof(Program).Assembly.GetName().Name + ".exe"))
             { UseShellExecute = false, CreateNoWindow = true };
         start.ArgumentList.Add("--scene-send-test"); start.ArgumentList.Add(pipe); start.ArgumentList.Add(path);
         using var process = System.Diagnostics.Process.Start(start)!;
@@ -300,11 +304,14 @@ internal static partial class Program
                     ThumbnailPng = Convert.ToBase64String(encoded.ToArray())
                 }));
             }
-            var providerPath = Path.Combine(Directory.GetCurrentDirectory(), "MuseBox.ThumbnailProvider",
-                "bin", "Release", "net48", "MuseBox.ThumbnailProvider.dll");
+            var isolatedProviderPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+                "..", "..", "MuseBox", "release", "ThumbnailProvider", "MuseBox.ThumbnailProvider.dll"));
+            var providerPath = File.Exists(isolatedProviderPath) ? isolatedProviderPath :
+                Path.Combine(Directory.GetCurrentDirectory(), "MuseBox.ThumbnailProvider",
+                    "bin", "Release", "net48", "MuseBox.ThumbnailProvider.dll");
             True(File.Exists(providerPath), "缩略图处理器没有生成");
             var name = AssemblyName.GetAssemblyName(providerPath);
-            Equal(new Version(1, 1, 21, 0), name.Version!);
+            Equal(typeof(BoardWindow).Assembly.GetName().Version!, name.Version!);
             var assembly = Assembly.LoadFile(providerPath);
             var type = assembly.GetType("MuseBox.ThumbnailProvider.SceneThumbnailProvider", true)!;
             Equal(new Guid("6F67433A-1EA6-47D0-982B-30EFAE588F38"), type.GUID);

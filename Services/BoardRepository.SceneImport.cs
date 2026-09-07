@@ -146,14 +146,16 @@ public sealed partial class BoardRepository
                     ("$id", itemIds[gif.ItemId]), ("$speed", gif.Speed), ("$playing", gif.IsPlaying), ("$frame", gif.FrameIndex));
             var view = scene.Document.Viewport;
             await ExecuteSceneAsync(connection, transaction, """
-                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame)
-                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affect,$showFrame)
+                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid)
+                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affect,$showFrame,$gridStyle,$gridSpacing,$snap)
                 ON CONFLICT(drawer_id) DO UPDATE SET pan_x=$x,pan_y=$y,zoom=$zoom,window_left=$left,window_top=$top,
-                    window_width=$width,window_height=$height,topmost=$pin,background_color=$background,window_opacity=$opacity,opacity_affects_images=$affect,show_window_frame=$showFrame
+                    window_width=$width,window_height=$height,topmost=$pin,background_color=$background,window_opacity=$opacity,opacity_affects_images=$affect,show_window_frame=$showFrame,
+                    grid_style=$gridStyle,grid_spacing=$gridSpacing,snap_to_grid=$snap
                 """, cancellationToken, ("$id", drawerId), ("$x", view.PanX), ("$y", view.PanY), ("$zoom", view.Zoom),
                 ("$left", view.WindowLeft), ("$top", view.WindowTop), ("$width", view.WindowWidth), ("$height", view.WindowHeight),
                 ("$pin", view.Topmost), ("$background", view.BackgroundColor), ("$opacity", view.WindowOpacity), ("$affect", view.OpacityAffectsImages),
-                ("$showFrame", view.ShowWindowFrame));
+                ("$showFrame", view.ShowWindowFrame), ("$gridStyle", (int)view.GridStyle),
+                ("$gridSpacing", view.GridSpacing), ("$snap", view.SnapToGrid));
             query.Parameters.Clear();
             query.CommandText = "SELECT COALESCE((SELECT revision FROM scene_revisions WHERE drawer_id=$id),0)";
             query.Parameters.AddWithValue("$id", drawerId);

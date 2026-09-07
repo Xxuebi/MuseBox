@@ -159,7 +159,35 @@ public partial class MainWindow : Window
     {
         if (sender is not FrameworkElement { Tag: string drawerId } || _isBusy || CollectionTransitioning ||
             e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
-        await ImportFilesAsync(drawerId, files);
+        e.Handled = true;
+        await HandleDroppedFilesAsync(files, drawerId);
+    }
+
+    private void OnMainWindowDragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        if (e.Handled) return;
+        e.Effects = !_isBusy && !CollectionTransitioning && e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnMainWindowDrop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (_isBusy || CollectionTransitioning || e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
+        e.Handled = true;
+        await HandleDroppedFilesAsync(files, null);
+    }
+
+    private async Task HandleDroppedFilesAsync(IEnumerable<string> files, string? drawerId)
+    {
+        var paths = files.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var scenes = SceneActivationService.ScenePaths(paths);
+        foreach (var scene in scenes) await OpenSceneFileAsync(scene);
+        var images = paths.Where(path => !SceneFileService.IsSupportedExtension(Path.GetExtension(path)) &&
+            ImageFileFormatService.FromFile(path) is not null).ToArray();
+        if (drawerId is not null && images.Length > 0) await ImportFilesAsync(drawerId, images);
+        else if (scenes.Length == 0) SetStatus("拖入 .mubo 或 .iscene 文件可独立打开画板。", true);
+        else if (drawerId is null && images.Length > 0) SetStatus("场景已打开；图片请拖到具体抽屉中。", false);
     }
 
     private async Task ImportFilesAsync(string drawerId, IEnumerable<string> files)

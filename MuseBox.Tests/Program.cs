@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Reflection;
 using System.Windows;
 using Application = System.Windows.Application;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
@@ -37,6 +38,9 @@ internal static partial class Program
             ("PNG 保存不覆盖", StorageCreatesUniquePngFiles),
             ("快捷键格式化", HotkeyFormatting),
             ("缩放保持指针位置", ZoomKeepsPointer),
+            ("画板网格菜单、相机重置与去色", BoardGridMenuAndDisplayModes),
+            ("画板网格吸附保持多选相对位置", BoardGridSnapping),
+            ("画板网格视口持久化与旧库迁移", BoardGridPersistence),
             ("500 项自动排布", ArrangeFiveHundredItems),
             ("统一排列几何对齐与等距分布", LayoutGeometry),
             ("统一排列混合选区全部操作及撤回持久化", LayoutMixedSelection),
@@ -166,6 +170,14 @@ internal static partial class Program
             ("场景三选项提示取消保存及不保存", ScenePromptChoices),
             ("场景缺失字体保留原名称并提示", SceneMissingFonts),
             ("场景失效图片注释链接提示清除及重设", SceneUnavailableLinks),
+            ("画板保存与导出菜单层级", BoardSaveExportMenuHierarchy),
+            ("画板逐张导出保留格式实例及不覆盖", BoardExportOriginalsPreserveFormatAndNeverOverwrite),
+            ("图像导出模板字段转义补零及验证", ImageExportTemplateFieldsEscapesAndValidation),
+            ("图像导出格式转换像素透明处理", ImageExportConversionsPreservePixelsAndFlattenTransparency),
+            ("图像导出覆盖失败完整恢复", ImageExportOverwriteFailureRestoresExistingFiles),
+            ("图像导出窗口格式与模板预设", ImageExportWindowConstructsWithFormatsAndPresets),
+            ("画板合成导出透明二倍与组合过滤", BoardCompositeExportIsTransparentTwoXAndFiltersGroups),
+            ("画板合成导出保留富文本样式", BoardCompositeExportPreservesRichText),
             ("菜单进出动画和点击穿透清理", PopupAnimationLifecycle),
             ("圆角确认弹窗布局与安全默认", RoundedPromptLayout),
             ("图片透明度原始Alpha及输入撤回", ImageOpacityWorkflow),
@@ -617,7 +629,9 @@ internal static partial class Program
             ((System.Windows.Controls.TextBlock)window.FindName("AboutChineseSubtitle")).Text == "灵感收集器",
             "关于页没有以 MuseBox 为主标题并保留中文副标题");
         var versionText = (System.Windows.Controls.TextBlock)window.FindName("AppVersionText");
-        True(versionText.Text.Contains("1.1.21", StringComparison.Ordinal),
+        var currentVersion = typeof(BoardWindow).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+        True(versionText.Text.Contains(currentVersion, StringComparison.Ordinal),
             "关于栏目没有显示当前程序集版本");
         window.ApplyTemplate();
         var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(window);
@@ -681,15 +695,20 @@ internal static partial class Program
             "文件关联与缩略图修复/卸载按钮缺失");
         Equal("#000000,#FFFFFF", string.Join(',', new AppSettings().SavedColors));
         Equal("#123456", new AppSettings { SavedColors = ["#123456"] }.Copy().SavedColors.Single());
-        Equal(6, window.ShortcutGroups.Count);
-        Equal(20, window.ShortcutGroups.Sum(x => x.Shortcuts.Count));
+        Equal(7, window.ShortcutGroups.Count);
+        Equal(26, window.ShortcutGroups.Sum(x => x.Shortcuts.Count));
         window.Close();
     }
 
     private static void EmbeddedShortcutSettings()
     {
         var defaults = BoardShortcutCatalog.CreateDefaults();
-        Equal(20, defaults.Count);
+        Equal(26, defaults.Count);
+        Equal("Ctrl+C", defaults[BoardShortcutCatalog.Copy]);
+        Equal("Ctrl+S", defaults[BoardShortcutCatalog.Save]);
+        Equal("Ctrl+Shift+S", defaults[BoardShortcutCatalog.SaveAs]);
+        Equal("", defaults[BoardShortcutCatalog.ResetCamera]);
+        Equal("", defaults[BoardShortcutCatalog.ResetCameraZoom]);
         True(BoardShortcutCatalog.TryParse(defaults[BoardShortcutCatalog.Arrange], out var arrange) &&
              arrange is not null, "默认自动排布快捷键无法解析");
         var custom = BoardShortcutCatalog.Merge(defaults);
@@ -709,6 +728,8 @@ internal static partial class Program
             "注释快捷键定义缺失");
         True(BoardShortcutCatalog.Definitions.Any(x => x.Id == BoardShortcutCatalog.Draw),
             "绘制快捷键定义缺失");
+        True(BoardShortcutCatalog.Definitions.Any(x => x.Id == BoardShortcutCatalog.SaveAs),
+            "另存为快捷键定义缺失");
         window.Close();
     }
 
