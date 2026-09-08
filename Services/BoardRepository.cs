@@ -159,11 +159,19 @@ public sealed partial class BoardRepository : IBoardRepository
                 "ALTER TABLE viewports ADD COLUMN grid_style INTEGER NOT NULL DEFAULT 0", cancellationToken);
             await EnsureColumnAsync(connection, "viewports", "grid_spacing",
                 "ALTER TABLE viewports ADD COLUMN grid_spacing REAL NOT NULL DEFAULT 32", cancellationToken);
+            await EnsureColumnAsync(connection, "viewports", "material_area_enabled",
+                "ALTER TABLE viewports ADD COLUMN material_area_enabled INTEGER NOT NULL DEFAULT 1", cancellationToken);
             await EnsureColumnAsync(connection, "viewports", "snap_to_grid",
                 "ALTER TABLE viewports ADD COLUMN snap_to_grid INTEGER NOT NULL DEFAULT 0", cancellationToken);
             await EnsureColumnAsync(connection, "items", "rotation",
                 "ALTER TABLE items ADD COLUMN rotation REAL NOT NULL DEFAULT 0", cancellationToken);
+            await EnsureColumnAsync(connection, "assets", "source_kind",
+                "ALTER TABLE assets ADD COLUMN source_kind INTEGER NOT NULL DEFAULT 0", cancellationToken);
+            await EnsureColumnAsync(connection, "assets", "content_hash",
+                "ALTER TABLE assets ADD COLUMN content_hash TEXT NOT NULL DEFAULT ''", cancellationToken);
             await InitializeLayerTreeAsync(connection, cancellationToken);
+            await InitializeMaterialsAsync(connection, cancellationToken);
+            await InitializeImageImportPreferencesAsync(connection, cancellationToken);
             await InitializeScenesAsync(connection, cancellationToken);
         }
         finally { _gate.Release(); }
@@ -357,7 +365,8 @@ public sealed partial class BoardRepository : IBoardRepository
                 SELECT
                     (SELECT COUNT(*) FROM items WHERE drawer_id=$id) +
                     (SELECT COUNT(*) FROM text_items WHERE drawer_id=$id) +
-                    (SELECT COUNT(*) FROM drawing_items WHERE drawer_id=$id)
+                    (SELECT COUNT(*) FROM drawing_items WHERE drawer_id=$id) +
+                    (SELECT COUNT(*) FROM board_materials WHERE drawer_id=$id)
                 """;
             command.Parameters.AddWithValue("$id", drawerId);
             return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
@@ -373,12 +382,13 @@ public sealed partial class BoardRepository : IBoardRepository
         {
             await using var connection = await OpenAsync(cancellationToken);
             await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
-            var candidates = new List<(string Id, string FileName)>();
+            var candidates = new List<(string Id, string FileName, AssetSourceKind SourceKind)>();
             var find = connection.CreateCommand();
             find.Transaction = transaction;
             find.CommandText = """
-                SELECT DISTINCT a.id, a.file_name FROM assets a
+                SELECT DISTINCT a.id, a.file_name, a.source_kind FROM assets a
                 WHERE a.id IN (SELECT asset_id FROM items WHERE drawer_id=$drawer)
+                    OR a.id IN (SELECT asset_id FROM board_materials WHERE drawer_id=$drawer)
                     OR a.id IN (SELECT source_asset_id FROM drawer_covers WHERE drawer_id=$drawer)
                     OR a.id IN (SELECT preview_asset_id FROM drawer_covers WHERE drawer_id=$drawer)
                 """;
@@ -386,7 +396,7 @@ public sealed partial class BoardRepository : IBoardRepository
             await using (var reader = await find.ExecuteReaderAsync(cancellationToken))
             {
                 while (await reader.ReadAsync(cancellationToken))
-                    candidates.Add((reader.GetString(0), reader.GetString(1)));
+                    candidates.Add((reader.GetString(0), reader.GetString(1), (AssetSourceKind)reader.GetInt32(2)));
             }
             var deleteDrawer = connection.CreateCommand();
             deleteDrawer.Transaction = transaction;
@@ -401,6 +411,7 @@ public sealed partial class BoardRepository : IBoardRepository
                 count.Transaction = transaction;
                 count.CommandText = """
                     SELECT (SELECT COUNT(*) FROM items WHERE asset_id=$id) +
+                    (SELECT COUNT(*) FROM board_materials WHERE asset_id=$id) +
                     (SELECT COUNT(*) FROM drawer_covers WHERE source_asset_id=$id OR preview_asset_id=$id)
                     """;
                 count.Parameters.AddWithValue("$id", candidate.Id);
@@ -410,7 +421,8 @@ public sealed partial class BoardRepository : IBoardRepository
                 deleteAsset.CommandText = "DELETE FROM assets WHERE id=$id";
                 deleteAsset.Parameters.AddWithValue("$id", candidate.Id);
                 await deleteAsset.ExecuteNonQueryAsync(cancellationToken);
-                orphanFiles.Add(Path.Combine(_assetDirectory, candidate.FileName));
+                if (candidate.SourceKind == AssetSourceKind.Internal && !Path.IsPathRooted(candidate.FileName))
+                    orphanFiles.Add(Path.Combine(_assetDirectory, candidate.FileName));
             }
             await transaction.CommitAsync(cancellationToken);
             return orphanFiles;
@@ -425,7 +437,7 @@ public sealed partial class BoardRepository : IBoardRepository
         {
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT id,hash,extension,file_name,pixel_width,pixel_height,created_utc FROM assets WHERE hash=$hash";
+            command.CommandText = "SELECT id,CASE WHEN content_hash='' THEN hash ELSE content_hash END,extension,file_name,pixel_width,pixel_height,created_utc,source_kind FROM assets WHERE hash=$hash";
             command.Parameters.AddWithValue("$hash", hash);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             return await reader.ReadAsync(cancellationToken) ? ReadAsset(reader) : null;
@@ -441,11 +453,13 @@ public sealed partial class BoardRepository : IBoardRepository
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT OR IGNORE INTO assets(id,hash,extension,file_name,pixel_width,pixel_height,created_utc)
-                VALUES($id,$hash,$ext,$file,$width,$height,$created)
+                INSERT OR IGNORE INTO assets(id,hash,extension,file_name,pixel_width,pixel_height,created_utc,source_kind,content_hash)
+                VALUES($id,$hash,$ext,$file,$width,$height,$created,$source,$content)
                 """;
             command.Parameters.AddWithValue("$id", asset.Id);
-            command.Parameters.AddWithValue("$hash", asset.Hash);
+            command.Parameters.AddWithValue("$hash", AssetPathResolver.Identity(asset));
+            command.Parameters.AddWithValue("$source", (int)asset.SourceKind);
+            command.Parameters.AddWithValue("$content", asset.Hash);
             command.Parameters.AddWithValue("$ext", asset.Extension);
             command.Parameters.AddWithValue("$file", asset.FileName);
             command.Parameters.AddWithValue("$width", asset.PixelWidth);
@@ -467,7 +481,7 @@ public sealed partial class BoardRepository : IBoardRepository
                 SELECT i.id,i.drawer_id,i.asset_id,a.file_name,i.x,i.y,i.width,i.height,
                        i.rotation,i.z_index,i.created_utc,i.group_id,i.web_link,i.file_link,
                        i.group_background_color,i.group_border_color,i.group_border_thickness,i.group_frame_padding,
-                       i.group_background_visible,i.group_locked,i.group_auto_membership,i.layer_name
+                       i.group_background_visible,i.group_locked,i.group_auto_membership,i.layer_name,a.source_kind
                 FROM items i JOIN assets a ON a.id=i.asset_id
                 WHERE i.drawer_id=$drawer ORDER BY i.z_index
                 """;
@@ -479,7 +493,7 @@ public sealed partial class BoardRepository : IBoardRepository
                 result.Add(new BoardItem
                 {
                     Id = reader.GetString(0), DrawerId = reader.GetString(1), AssetId = reader.GetString(2),
-                    AssetPath = Path.Combine(_assetDirectory, reader.GetString(3)),
+                    AssetPath = AssetPathResolver.Resolve(_assetDirectory, reader.GetString(3), (AssetSourceKind)reader.GetInt32(22)),
                     X = reader.GetDouble(4), Y = reader.GetDouble(5), Width = reader.GetDouble(6),
                     Height = reader.GetDouble(7), Rotation = reader.GetDouble(8),
                     ZIndex = reader.GetInt32(9), CreatedUtc = ParseDate(reader.GetString(10)),
@@ -883,7 +897,7 @@ public sealed partial class BoardRepository : IBoardRepository
         {
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
-            command.CommandText = "SELECT pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid FROM viewports WHERE drawer_id=$id";
+            command.CommandText = "SELECT pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid,material_area_enabled FROM viewports WHERE drawer_id=$id";
             command.Parameters.AddWithValue("$id", drawerId);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken)) return new BoardViewport { DrawerId = drawerId };
@@ -901,7 +915,8 @@ public sealed partial class BoardRepository : IBoardRepository
                 GridStyle = Enum.IsDefined(typeof(BoardGridStyle), reader.GetInt32(12))
                     ? (BoardGridStyle)reader.GetInt32(12) : BoardGridStyle.None,
                 GridSpacing = reader.GetDouble(13),
-                SnapToGrid = reader.GetBoolean(14)
+                SnapToGrid = reader.GetBoolean(14),
+                MaterialAreaEnabled = reader.GetBoolean(15)
             };
         }
         finally { _gate.Release(); }
@@ -915,12 +930,12 @@ public sealed partial class BoardRepository : IBoardRepository
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid)
-                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affectImages,$showFrame,$gridStyle,$gridSpacing,$snap)
+                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid,material_area_enabled)
+                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affectImages,$showFrame,$gridStyle,$gridSpacing,$snap,$materials)
                 ON CONFLICT(drawer_id) DO UPDATE SET pan_x=$x,pan_y=$y,zoom=$zoom,window_left=$left,
                     window_top=$top,window_width=$width,window_height=$height,topmost=$pin,
                     background_color=$background,window_opacity=$opacity,opacity_affects_images=$affectImages,show_window_frame=$showFrame,
-                    grid_style=$gridStyle,grid_spacing=$gridSpacing,snap_to_grid=$snap
+                    grid_style=$gridStyle,grid_spacing=$gridSpacing,snap_to_grid=$snap,material_area_enabled=$materials
                 """;
             command.Parameters.AddWithValue("$id", viewport.DrawerId);
             command.Parameters.AddWithValue("$x", viewport.PanX);
@@ -938,6 +953,7 @@ public sealed partial class BoardRepository : IBoardRepository
             command.Parameters.AddWithValue("$gridStyle", (int)viewport.GridStyle);
             command.Parameters.AddWithValue("$gridSpacing", viewport.GridSpacing);
             command.Parameters.AddWithValue("$snap", viewport.SnapToGrid);
+            command.Parameters.AddWithValue("$materials", viewport.MaterialAreaEnabled);
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
         finally { _gate.Release(); }
@@ -951,12 +967,15 @@ public sealed partial class BoardRepository : IBoardRepository
             await using var connection = await OpenAsync(cancellationToken);
             var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT a.file_name FROM items i JOIN assets a ON a.id=i.asset_id
-                WHERE i.drawer_id=$id ORDER BY i.created_utc DESC LIMIT 1
+                SELECT a.file_name,a.source_kind FROM (
+                    SELECT asset_id,created_utc FROM items WHERE drawer_id=$id
+                    UNION ALL SELECT asset_id,created_utc FROM board_materials WHERE drawer_id=$id
+                ) i JOIN assets a ON a.id=i.asset_id ORDER BY i.created_utc DESC LIMIT 1
                 """;
             command.Parameters.AddWithValue("$id", drawerId);
-            return await command.ExecuteScalarAsync(cancellationToken) is string file
-                ? Path.Combine(_assetDirectory, file) : null;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await reader.ReadAsync(cancellationToken)
+                ? AssetPathResolver.Resolve(_assetDirectory, reader.GetString(0), (AssetSourceKind)reader.GetInt32(1)) : null;
         }
         finally { _gate.Release(); }
     }
@@ -973,7 +992,7 @@ public sealed partial class BoardRepository : IBoardRepository
 
     private static AssetRecord ReadAsset(SqliteDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-        reader.GetInt32(4), reader.GetInt32(5), ParseDate(reader.GetString(6)));
+        reader.GetInt32(4), reader.GetInt32(5), ParseDate(reader.GetString(6)), (AssetSourceKind)reader.GetInt32(7));
 
     private static DateTime ParseDate(string value) =>
         DateTime.Parse(value, null, System.Globalization.DateTimeStyles.RoundtripKind);

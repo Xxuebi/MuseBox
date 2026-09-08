@@ -98,6 +98,7 @@ public partial class BoardWindow : Window
         _repository = repository;
         _importService = importService;
         InitializeComponent();
+        InitializeMaterialArea();
         InitializePresentationModes();
         Opacity = 0;
         InitializeTextToolbar();
@@ -141,7 +142,7 @@ public partial class BoardWindow : Window
         Closing += async (sender, args) =>
         {
             CloseToolPopups();
-            if (_imageEditBusy) { args.Cancel = true; BoardStatus.Text = "图片正在保存，请稍候"; return; }
+            if (_imageEditBusy || _materialTransferBusy) { args.Cancel = true; BoardStatus.Text = "图片正在保存，请稍候"; return; }
             if (_closeAfterDrawingSave) return;
             args.Cancel = true;
             try
@@ -156,6 +157,20 @@ public partial class BoardWindow : Window
             }
             catch (Exception error) { BoardStatus.Text = $"尚未保存，窗口保持打开：{error.Message}"; }
         };
+    }
+
+    public void RefreshLinkedImagePaths(IReadOnlySet<string> paths)
+    {
+        if (_boardClosed) return;
+        _materialPanel.Invalidate(paths);
+        foreach (var item in _items.Where(i => paths.Contains(i.AssetPath)))
+        {
+            _gifLoads.Remove(item.AssetPath);
+            _gifBindings.Remove(item.Id);
+            if (_visuals.Remove(item.Id, out var visual)) WorldCanvas.Children.Remove(visual.Border);
+            AddItemVisual(item);
+        }
+        UpdateSelectionVisuals();
     }
 
     public async Task ReloadAsync()
@@ -184,6 +199,7 @@ public partial class BoardWindow : Window
         _savedGifStates.Clear();
         foreach (var state in await _repository.GetGifStatesAsync(_drawerId)) _savedGifStates[state.ItemId] = state;
         if (_boardClosed) return;
+        await ReloadMaterialsAsync();
         RenderItems();
         foreach (var id in selection.Where(id => AllElements.Any(x => x.Id == id))) _selected.Add(id);
         UpdateSelectionVisuals();
@@ -295,7 +311,8 @@ public partial class BoardWindow : Window
         {
             grid.Children.Add(new TextBlock
             {
-                Text = "图片文件缺失", Foreground = Brushes.White,
+                Text = "图片文件缺失\n" + item.AssetPath, TextWrapping = TextWrapping.Wrap,
+                ToolTip = item.AssetPath, Foreground = Brushes.Gray,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             });
@@ -318,6 +335,7 @@ public partial class BoardWindow : Window
                 var image = new BitmapImage();
                 image.BeginInit();
                 image.CacheOption = BitmapCacheOption.OnLoad;
+                image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
                 image.DecodePixelWidth = 1400;
                 image.UriSource = new Uri(path, UriKind.Absolute);
                 image.EndInit();
@@ -327,6 +345,12 @@ public partial class BoardWindow : Window
             catch { return null; }
         });
         if (source is not null) target.Source = GetDisplayImageSource(source);
+        else if (target.Parent is Grid grid)
+        {
+            grid.Children.Add(new TextBlock { Text = "图片无法读取\n" + path,
+                TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, ToolTip = path,
+                VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center });
+        }
     }
 
     private void OnItemMouseDown(BoardElement item, MouseButtonEventArgs e)
@@ -1060,6 +1084,7 @@ public partial class BoardWindow : Window
 
     private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        if (IsMaterialSource(e.OriginalSource as DependencyObject)) return;
         if (LayersPanel.Visibility == Visibility.Visible &&
             IsPointerInsideLayersPanel(e.OriginalSource as DependencyObject)) return;
         PulseInteractiveRenderQuality();
@@ -1096,6 +1121,14 @@ public partial class BoardWindow : Window
 
     private async void OnBoardDrop(object sender, System.Windows.DragEventArgs e)
     {
+        if (e.Handled) return;
+        if (e.Data.GetData(ScreenshotCollector.Controls.MaterialAreaPanel.DragFormat) is ScreenshotCollector.Controls.MaterialDragPayload material)
+        {
+            e.Handled = true;
+            if (ReferenceEquals(material.Owner, this) && IsMaterialDropTarget(e.OriginalSource as DependencyObject))
+                await ApplyMaterialActionAsync(material.Ids.ToHashSet(), false, ScreenToWorld(e.GetPosition(BoardSurface)));
+            return;
+        }
         if (_imageEditBusy || _sceneOperation || e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
         _imageEditBusy = true;
         var world = ScreenToWorld(e.GetPosition(BoardSurface));
@@ -1111,6 +1144,13 @@ public partial class BoardWindow : Window
 
     private void OnBoardDragOver(object sender, System.Windows.DragEventArgs e)
     {
+        if (e.Handled) return;
+        if (e.Data.GetData(ScreenshotCollector.Controls.MaterialAreaPanel.DragFormat) is ScreenshotCollector.Controls.MaterialDragPayload material)
+        {
+            e.Effects = ReferenceEquals(material.Owner, this) && IsMaterialDropTarget(e.OriginalSource as DependencyObject) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
@@ -1289,6 +1329,9 @@ public partial class BoardWindow : Window
 
     private async void OnBoardSettingsClick(object sender, RoutedEventArgs e)
     {
+        ImageImportPreferences importPreferences;
+        try { importPreferences = await _repository.GetImageImportPreferencesAsync(_drawerId); }
+        catch (Exception error) { BoardStatus.Text = "无法读取导入设置：" + error.Message; return; }
         var originalColor = _viewport.BackgroundColor;
         var originalOpacity = _viewport.WindowOpacity;
         var originalAffectsImages = _viewport.OpacityAffectsImages;
@@ -1297,7 +1340,9 @@ public partial class BoardWindow : Window
             _viewport.BackgroundColor,
             _viewport.WindowOpacity,
             _viewport.OpacityAffectsImages,
-            _viewport.ShowWindowFrame)
+            _viewport.ShowWindowFrame,
+            _viewport.MaterialAreaEnabled,
+            importPreferences.AskEveryTime)
         {
             Owner = this
         };
@@ -1308,7 +1353,8 @@ public partial class BoardWindow : Window
             foreach (var visual in _visuals.Values) visual.Border.Opacity = itemOpacity;
         };
         window.WindowFramePreviewChanged += ApplyWindowFrame;
-        if (window.ShowDialog() != true)
+        if (window.ShowDialog() != true ||
+            !await ((App)Application.Current).CollectorWindow.SetMaterialAreaEnabledAsync(_drawerId, window.MaterialAreaEnabled))
         {
             ApplyBackground(originalColor, originalOpacity);
             var itemOpacity = originalAffectsImages ? Math.Clamp(originalOpacity, .1, 1) : 1;
@@ -1316,6 +1362,14 @@ public partial class BoardWindow : Window
             ApplyWindowFrame(originalShowFrame);
             return;
         }
+        string? importPreferenceError = null;
+        if (window.AskImageImportMode != importPreferences.AskEveryTime)
+        {
+            try { await _repository.SaveImageImportPreferencesAsync(_drawerId, importPreferences with { AskEveryTime = window.AskImageImportMode }); }
+            catch (Exception error) { importPreferenceError = "导入提醒未能保存：" + error.Message; }
+        }
+        _viewport.MaterialAreaEnabled = window.MaterialAreaEnabled;
+        UpdateMaterialAreaVisibility();
         _viewport.BackgroundColor = window.BackgroundColor;
         _viewport.WindowOpacity = window.BackgroundOpacity;
         _viewport.OpacityAffectsImages = window.OpacityAffectsImages;
@@ -1324,7 +1378,7 @@ public partial class BoardWindow : Window
         ApplyWindowFrame(_viewport.ShowWindowFrame);
         ApplyItemOpacity();
         await SaveViewportAsync();
-        BoardStatus.Text = "画板背景设置已保存";
+        BoardStatus.Text = importPreferenceError ?? "画板设置已保存";
     }
 
     private async void OnUndoClick(object sender, RoutedEventArgs e) => await UndoAsync();
@@ -1467,6 +1521,7 @@ public partial class BoardWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_materialPanel.HandleKey(e)) return;
         if (_presentationMode == BoardPresentationMode.SmartTopmost && _smartTarget == IntPtr.Zero &&
             e.Key == Key.Escape)
         {
@@ -1475,7 +1530,7 @@ public partial class BoardWindow : Window
             e.Handled = true;
             return;
         }
-        if (_imageEditBusy) { e.Handled = true; return; }
+        if (_imageEditBusy || _materialTransferBusy) { e.Handled = true; return; }
         if (e.Key == Key.Escape && _imageToolbarId is not null)
         {
             CloseImageToolbar();
@@ -1550,18 +1605,9 @@ public partial class BoardWindow : Window
         if (item is null) return;
         try
         {
-            using var bitmap = new DrawingBitmap(item.AssetPath);
-            using var stream = new MemoryStream();
-            bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
-            stream.Position = 0;
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.StreamSource = stream;
-            image.EndInit();
-            image.Freeze();
-            Clipboard.SetImage(image);
-            BoardStatus.Text = "已复制图片";
+            var data = BoardClipboardService.CreateDataObject(item.AssetPath);
+            Clipboard.SetDataObject(data, true);
+            BoardStatus.Text = data.GetDataPresent("GIF", false) ? "已复制 GIF 动图" : "已复制图片";
         }
         catch (Exception exception) { BoardStatus.Text = exception.Message; }
     }
@@ -1640,6 +1686,7 @@ public partial class BoardWindow : Window
 
     private void OnBoardContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        if (IsMaterialSource(e.OriginalSource as DependencyObject)) return;
         ConfigureGifContextMenu(e.OriginalSource as DependencyObject);
         HideEraserCursor();
         if (_suppressNextContextMenu)
@@ -1650,7 +1697,7 @@ public partial class BoardWindow : Window
         }
         var hasSelection = _selected.Count > 0;
         var hasSelectedImage = _items.Any(x => _selected.Contains(x.Id));
-        ExportAllOriginalsMenuItem.IsEnabled = _items.Count > 0;
+        ExportAllOriginalsMenuItem.IsEnabled = _items.Count > 0 || _materials.Count > 0;
         ExportAllCompositeMenuItem.IsEnabled = AllElements.Any();
         ExportSelectedMenuItem.IsEnabled = hasSelection;
         ExportSelectedOriginalsMenuItem.IsEnabled = hasSelectedImage;
@@ -1842,11 +1889,12 @@ public partial class BoardWindow : Window
         List<BoardDrawingItem> Drawings,
         List<BoardGroup> Groups)
     {
+        public MaterialChange? MaterialDelta { get; init; }
         public BoardSnapshot DeepCopy() => new(
             Images.Select(x => x.Clone()).ToList(),
             TextItems.Select(x => x.Clone()).ToList(),
             Drawings.Select(x => x.Clone()).ToList(),
-            Groups.Select(x => x.Clone()).ToList());
+            Groups.Select(x => x.Clone()).ToList()) { MaterialDelta = MaterialDelta?.DeepCopy() };
     }
 }
 

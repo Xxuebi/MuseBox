@@ -21,13 +21,13 @@ public sealed partial class BoardRepository
                 speed REAL NOT NULL, is_playing INTEGER NOT NULL, frame_index INTEGER NOT NULL);
             """;
         await command.ExecuteNonQueryAsync(token);
-        foreach (var table in new[] { "items", "text_items", "drawing_items", "board_groups", "drawer_covers", "viewports", "drawers", "gif_states" })
+        foreach (var table in new[] { "items", "text_items", "drawing_items", "board_groups", "board_materials", "drawer_covers", "viewports", "drawers", "gif_states" })
         {
             var columns = table switch
             {
                 "drawers" => new[] { "display_name" },
                 "viewports" => new[] { "pan_x", "pan_y", "zoom", "window_left", "window_top", "window_width", "window_height", "topmost",
-                    "background_color", "window_opacity", "opacity_affects_images", "show_window_frame", "grid_style", "grid_spacing", "snap_to_grid" },
+                    "background_color", "window_opacity", "opacity_affects_images", "show_window_frame", "grid_style", "grid_spacing", "snap_to_grid", "material_area_enabled" },
                 "gif_states" => new[] { "speed", "is_playing" },
                 _ => Array.Empty<string>()
             };
@@ -128,7 +128,7 @@ public sealed partial class BoardRepository
                     window_width WindowWidth,window_height WindowHeight,topmost Topmost,background_color BackgroundColor,
                     window_opacity WindowOpacity,opacity_affects_images OpacityAffectsImages,
                     show_window_frame ShowWindowFrame,grid_style GridStyle,grid_spacing GridSpacing,
-                    snap_to_grid SnapToGrid FROM viewports WHERE drawer_id=$id
+                    snap_to_grid SnapToGrid,material_area_enabled MaterialAreaEnabled FROM viewports WHERE drawer_id=$id
                 """, drawerId, cancellationToken)).SingleOrDefault() ?? new();
             using var cover = connection.CreateCommand();
             cover.Transaction = transaction;
@@ -138,10 +138,14 @@ public sealed partial class BoardRepository
                 if (await reader.ReadAsync(cancellationToken))
                     document.Cover = new DrawerCover(reader.GetString(0), reader.GetString(1),
                         JsonSerializer.Deserialize<CoverCropState>(reader.GetString(2)) ?? new());
+            document.Materials = await SceneRowsAsync<BoardMaterialItem>(connection, transaction,
+                "SELECT id Id,asset_id AssetId,layer_name LayerName,created_utc CreatedUtc,sort_order SortOrder FROM board_materials WHERE drawer_id=$id ORDER BY sort_order DESC,id", drawerId, cancellationToken);
+            foreach (var material in document.Materials) material.DrawerId = "";
             document.Gifs = await SceneRowsAsync<GifSceneState>(connection, transaction, GifSelectSql, drawerId, cancellationToken);
             var assets = await SceneRowsAsync<AssetRecord>(connection, transaction, """
-                SELECT id Id,hash Hash,extension Extension,file_name FileName,pixel_width PixelWidth,pixel_height PixelHeight,created_utc CreatedUtc
+                SELECT id Id,CASE WHEN content_hash='' THEN hash ELSE content_hash END Hash,extension Extension,file_name FileName,pixel_width PixelWidth,pixel_height PixelHeight,created_utc CreatedUtc,source_kind SourceKind
                 FROM assets WHERE id IN (SELECT asset_id FROM items WHERE drawer_id=$id)
+                    OR id IN (SELECT asset_id FROM board_materials WHERE drawer_id=$id)
                     OR id IN (SELECT source_asset_id FROM drawer_covers WHERE drawer_id=$id)
                     OR id IN (SELECT preview_asset_id FROM drawer_covers WHERE drawer_id=$id) ORDER BY hash
                 """, drawerId, cancellationToken);
@@ -149,11 +153,15 @@ public sealed partial class BoardRepository
             foreach (var element in document.Images.Cast<BoardElement>().Concat(document.Texts).Concat(document.Drawings)) element.DrawerId = "";
             foreach (var group in document.Groups) group.DrawerId = "";
             document.Viewport.DrawerId = "";
-            document.Assets = assets.Select(a => new SceneAsset(a.Id, a.Hash,
-                ImageFileFormatService.FromFile(Path.Combine(_assetDirectory, a.FileName)) ?? a.Extension, a.PixelWidth, a.PixelHeight)).ToList();
-            var paths = assets.ToDictionary(a => a.Id, a => Path.Combine(_assetDirectory, a.FileName));
+            document.Assets = assets.Select(a => new SceneAsset(a.Id, a.Hash, a.Extension,
+                a.PixelWidth, a.PixelHeight, a.SourceKind, a.SourceKind == AssetSourceKind.External ? a.FileName : "")).ToList();
+            var paths = assets.ToDictionary(a => a.Id, a => AssetPathResolver.Resolve(_assetDirectory, a));
+            SceneGifStateService.PrepareLocalSnapshot(document, paths);
             name.CommandText = "SELECT COALESCE((SELECT revision FROM scene_revisions WHERE drawer_id=$id),0)";
             var revision = Convert.ToInt64(await name.ExecuteScalarAsync(cancellationToken));
+            // Library APIs still accept legacy member-style groups; normalize them before emitting v3.
+            document.Version = 2;
+            SceneMigration.UpgradeToCurrent(document);
             transaction.Commit();
             return new SceneSnapshot(document, paths, revision);
         }

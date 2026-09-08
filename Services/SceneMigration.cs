@@ -7,6 +7,7 @@ public static class SceneMigration
     public static void UpgradeToCurrent(SceneDocument scene)
     {
         scene.Groups ??= new List<BoardGroup>();
+        scene.Materials ??= new List<BoardMaterialItem>();
         var elements = scene.Images.Cast<BoardElement>().Concat(scene.Texts).Concat(scene.Drawings).ToArray();
         if (scene.Version is 1 or 2)
         {
@@ -33,13 +34,14 @@ public static class SceneMigration
                 existingIds.Add(legacy.Key);
                 needsNormalization = true;
             }
-            scene.Version = 2;
+            scene.Version = 3;
             if (needsNormalization)
             {
                 BoardLayerTreeService.Validate(scene.Groups, elements);
                 BoardLayerTreeService.NormalizeZIndices(scene.Groups, elements);
             }
         }
+        if (scene.Version == 3) scene.Version = 4;
         BoardLayerNameService.EnsureNames(elements, scene.Groups);
         BoardLayerTreeService.SyncLegacyPresentation(scene.Groups, elements);
     }

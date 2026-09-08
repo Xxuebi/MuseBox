@@ -2,7 +2,7 @@ namespace ScreenshotCollector.Models;
 
 public sealed class AppSettings
 {
-    public int Version { get; set; } = 8;
+    public int Version { get; set; } = 9;
 
     public bool HotkeyEnabled { get; set; } = true;
 
@@ -20,6 +20,12 @@ public sealed class AppSettings
 
     public bool CompatibleRendering { get; set; } = true;
     public int UndoStepLimit { get; set; } = 100;
+    public bool AskBeforeSavingLinks { get; set; } = true;
+    public ExternalImageSaveMode LinkedImageSaveMode { get; set; } = ExternalImageSaveMode.KeepLinks;
+    // Legacy setting retained only for old settings-file round trips; BoardViewport owns enablement.
+    public bool MaterialAreaEnabled { get; set; } = true;
+    public bool AutoSaveEnabled { get; set; } = true;
+    public int AutoSaveIntervalMinutes { get; set; } = 5;
     public bool BoardShortcutsEnabled { get; set; } = true;
 
     public double? MainLeft { get; set; }
@@ -54,6 +60,11 @@ public sealed class AppSettings
         LanguageCode = string.IsNullOrWhiteSpace(LanguageCode) ? "zh-CN" : LanguageCode,
         CompatibleRendering = CompatibleRendering,
         UndoStepLimit = Math.Clamp(UndoStepLimit, 1, 500),
+        AskBeforeSavingLinks = AskBeforeSavingLinks,
+        LinkedImageSaveMode = Enum.IsDefined(LinkedImageSaveMode) ? LinkedImageSaveMode : ExternalImageSaveMode.KeepLinks,
+        MaterialAreaEnabled = MaterialAreaEnabled,
+        AutoSaveEnabled = AutoSaveEnabled,
+        AutoSaveIntervalMinutes = Math.Clamp(AutoSaveIntervalMinutes, 1, 120),
         BoardShortcutsEnabled = BoardShortcutsEnabled,
         MainLeft = MainLeft,
         MainTop = MainTop,

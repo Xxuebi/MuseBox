@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Controls;
 using ScreenshotCollector.Models;
 using ScreenshotCollector.Services;
 using Forms = System.Windows.Forms;
@@ -23,9 +24,25 @@ public partial class SettingsWindow : Window
 
     public ObservableCollection<SettingsShortcutGroup> ShortcutGroups { get; } = new();
 
+
+
+    private void OnSettingsCategoryChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, SettingsCategories) || SettingsCategories.SelectedItem != SaveLoadSettingsTab) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (SettingsCategories.SelectedItem == SaveLoadSettingsTab)
+            {
+                StorageHeading.Focus();
+                StoragePathTextBox.Select(0, 0);
+            }
+        }));
+    }
+
     public SettingsWindow(AppSettings settings)
     {
         InitializeComponent();
+        // Descriptions are explicit row tooltips in the compact settings layout.
         ThemedWindowChromeService.Attach(this);
         var icon = new System.Windows.Media.Imaging.IconBitmapDecoder(
             new Uri("pack://application:,,,/MuseBox;component/Assets/app-icon.ico"),
@@ -46,16 +63,20 @@ public partial class SettingsWindow : Window
         BuildShortcutGroups();
         DataContext = this;
         HotkeyToggle.IsChecked = settings.HotkeyEnabled;
-        MainTopmostToggle.IsChecked = settings.MainTopmost;
+        // Topmost remains controlled by the small-window pin button.
         ShowDrawerLettersToggle.IsChecked = settings.ShowDrawerLetters;
         UseSystemScreenshotToggle.IsChecked = settings.UseSystemScreenshot;
         CompatibleRenderingToggle.IsChecked = settings.CompatibleRendering;
+        AutoSaveIntervalInput.Text = Math.Clamp(settings.AutoSaveIntervalMinutes, 1, 120).ToString();
+        AutoSaveToggle.IsChecked = settings.AutoSaveEnabled;
+        UpdateAutoSaveEditorState();
         RefreshSystemAppearanceChoice();
         LightAppearanceRadio.IsChecked = settings.AppearanceMode == AppAppearanceMode.Light;
         DarkAppearanceRadio.IsChecked = settings.AppearanceMode == AppAppearanceMode.Dark;
         SystemAppearanceRadio.IsChecked = settings.AppearanceMode == AppAppearanceMode.FollowSystem;
         Activated += (_, _) => RefreshSystemAppearanceChoice();
         StoragePathTextBox.Text = AppDataPaths.ResolveRoot(settings.BoardStoragePath);
+        // Legacy external-link save preferences remain unchanged; this page only edits general save options.
         UndoStepLimitInput.Text = Math.Clamp(settings.UndoStepLimit, 1, 500).ToString();
         RefreshHotkeyText();
         UpdateHotkeyEditorState();
@@ -82,6 +103,16 @@ public partial class SettingsWindow : Window
     {
         UpdateHotkeyEditorState();
         RefreshShortcutFeedback();
+    }
+
+    private void OnAutoSaveToggleChanged(object sender, RoutedEventArgs e) =>
+        UpdateAutoSaveEditorState();
+
+    private void UpdateAutoSaveEditorState()
+    {
+        var enabled = AutoSaveToggle.IsChecked == true;
+        AutoSaveIntervalRow.IsEnabled = enabled;
+        AutoSaveIntervalRow.Opacity = enabled ? 1 : .55;
     }
 
     private void OnHotkeyInputMouseDown(object sender, MouseButtonEventArgs e)
@@ -212,6 +243,14 @@ public partial class SettingsWindow : Window
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
     {
+        if (!int.TryParse(AutoSaveIntervalInput.Text, out var autoSaveInterval) || autoSaveInterval is < 1 or > 120)
+        {
+            SettingsCategories.SelectedIndex = 0;
+            ValidationText.Text = "自动保存间隔请输入 1–120 的整数。";
+            AutoSaveIntervalInput.Focus();
+            AutoSaveIntervalInput.SelectAll();
+            return;
+        }
         if (!int.TryParse(UndoStepLimitInput.Text, out var limit) || limit is < 1 or > 500)
         {
             SettingsCategories.SelectedIndex = 0;
@@ -251,17 +290,20 @@ public partial class SettingsWindow : Window
         }
 
         ResultSettings = _source.Copy();
-        ResultSettings.Version = 7;
+        ResultSettings.Version = 9;
         ResultSettings.HotkeyEnabled = HotkeyToggle.IsChecked == true;
         ResultSettings.HotkeyModifiers = _selectedModifiers;
         ResultSettings.HotkeyVirtualKey = _selectedVirtualKey;
         _boardShortcuts = _shortcutRows.ToDictionary(
             x => x.Id, x => x.Gesture, StringComparer.OrdinalIgnoreCase);
         ResultSettings.BoardShortcuts = BoardShortcutCatalog.Merge(_boardShortcuts);
-        ResultSettings.MainTopmost = MainTopmostToggle.IsChecked == true;
+        // Preserve the current pin state; it is no longer a settings-page option.
         ResultSettings.ShowDrawerLetters = ShowDrawerLettersToggle.IsChecked == true;
         ResultSettings.UseSystemScreenshot = UseSystemScreenshotToggle.IsChecked == true;
         ResultSettings.CompatibleRendering = CompatibleRenderingToggle.IsChecked == true;
+        // Keep saved external-link handling unchanged.
+        ResultSettings.AutoSaveEnabled = AutoSaveToggle.IsChecked == true;
+        ResultSettings.AutoSaveIntervalMinutes = autoSaveInterval;
         ResultSettings.AppearanceMode = DarkAppearanceRadio.IsChecked == true
             ? AppAppearanceMode.Dark
             : LightAppearanceRadio.IsChecked == true
@@ -280,6 +322,27 @@ public partial class SettingsWindow : Window
                 ? currentRoot
                 : null;
         DialogResult = true;
+    }
+
+    private void OnAboutLinkClick(object sender, RoutedEventArgs e)
+    {
+        var path = ((sender as FrameworkElement)?.Tag as string) switch
+        {
+            "project" => "",
+            "releases" => "/releases/latest",
+            "issues" => "/issues",
+            _ => null
+        };
+        if (path is null) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "https://github.com/Xxuebi/MuseBox" + path) { UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            ValidationText.Text = "无法打开浏览器，请访问 github.com/Xxuebi/MuseBox。";
+        }
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e) => DialogResult = false;

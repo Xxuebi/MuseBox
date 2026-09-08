@@ -7,6 +7,21 @@ namespace ScreenshotCollector;
 
 public partial class BoardWindow
 {
+    public Func<Task> PrepareLinkedConversionUndo()
+    {
+        var before = Snapshot();
+        var materials = _materials.Select(m => m.Clone()).ToArray();
+        return async () =>
+        {
+            await ReloadAsync();
+            var oldImages = before.Images.Where(i => _items.Any(a => a.Id == i.Id && a.AssetId != i.AssetId)).ToArray();
+            var oldMaterials = materials.Where(i => _materials.Any(a => a.Id == i.Id && a.AssetId != i.AssetId)).ToArray();
+            var change = new MaterialChange(_drawerId, oldMaterials, _materials.Where(m => oldMaterials.Any(o => o.Id == m.Id)).Select(m => m.Clone()).ToArray(),
+                oldImages, _items.Where(i => oldImages.Any(o => o.Id == i.Id)).Select(i => i.Clone()).ToArray());
+            PushUndoSnapshot(Snapshot() with { MaterialDelta = change.Inverse() });
+        };
+    }
+
     private bool _sceneOperation;
     private readonly TaskCompletionSource _boardInitialization = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task _gifStateSave = Task.CompletedTask;
@@ -39,7 +54,7 @@ public partial class BoardWindow
         {
             if (IsVisible) await _boardInitialization.Task;
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
-            while (_imageEditBusy || _historyBusy) await Task.Delay(30);
+            while (_imageEditBusy || _historyBusy || _materialTransferBusy) await Task.Delay(30);
             await FlushPendingDrawingAsync();
             await CommitTextEditingAsync();
             await _gifStateSave;

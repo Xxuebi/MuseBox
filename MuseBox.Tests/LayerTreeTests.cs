@@ -108,12 +108,12 @@ internal static partial class Program
             using (var stream = archive.CreateEntry("scene.json").Open())
                 JsonSerializer.Serialize(stream, legacy);
             using var prepared = SceneFileService.ReadAsync(path).GetAwaiter().GetResult();
-            Equal(2, prepared.Document.Version);
+            Equal(4, prepared.Document.Version);
             Equal("legacy-group", prepared.Document.Groups.Single().Id);
         }
         finally { Directory.Delete(directory, true); }
         SceneValidation.Validate(legacy);
-        Equal(2, legacy.Version);
+        Equal(4, legacy.Version);
         Equal(1, legacy.Groups.Count);
         Equal("legacy-group", legacy.Groups[0].Id);
         Equal("#80445566", legacy.Groups[0].BackgroundColor);

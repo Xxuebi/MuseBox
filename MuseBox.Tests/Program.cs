@@ -32,6 +32,33 @@ internal static partial class Program
         application.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var tests = new (string Name, Action Run)[]
         {
+            ("导入方式按抽屉记忆取消失败恢复及重新提醒", ImageImportPreferenceIsolation),
+            ("导入提醒文案勾选设置焦点与自动保存默认", ImportReminderSettingsUi),
+            ("GIF静态替换残留状态与真实格式保存修复", GifStaleStateSaveRecovery),
+            ("素材独立开关重启场景往返和旧版默认", MaterialBoardFlagRoundTrip),
+            ("画板GIF复制保留原始帧和原生剪贴板格式", BoardGifClipboardPreservesAnimation),
+            ("画板素材开关迁移与常规页面悬停说明", BoardMaterialSettingsAndGeneralHints),
+            ("素材简洁图片阴影空白取消选择与全部移入", MaterialChromeAndBlankSelection),
+            ("素材侧边三角收纳与拖动跟随预览清理", MaterialSideHandleAndDragPreview),
+            ("素材外链删除恢复通知与复制转换撤回", MaterialLinkedRefreshAndUndo),
+            ("素材迁移提交失败恢复设置和数据", MaterialCommitFailureRestoresSettings),
+            ("素材未打开画板历史接入与删除原图保护", MaterialPendingHistoryAndDeleteSafety),
+            ("素材默认开关导入分流排序和重启持久化", MaterialRoutingAndPersistence),
+            ("素材移动定位新增保留和批量失败回滚", MaterialMoveTransactions),
+            ("素材场景v4往返缺失转换和关闭时打开", MaterialSceneRoundTrip),
+            ("素材全部导出和选择导出范围隔离", MaterialExportScope),
+            ("素材面板选择收纳计数与撤回重做", MaterialHistoryAndSelection),
+            ("素材独立开关取消和多抽屉分流隔离", MaterialGlobalDisable),
+            ("素材明暗窄窗口虚拟化滚动与多选", MaterialPanelLayout),
+            ("链接GIF和图片缓存替换及缺失恢复", LinkedGifVisualRefresh),
+            ("链接保存询问记忆和自动保存规则", LinkedSavePreferences),
+            ("链接提示与保存设置明暗主题布局", LinkedDialogsLayout),
+            ("链接导入批次校验去重和删除安全", LinkedImportBatchSafety),
+            ("链接场景v3往返缺失和复制转换", LinkedSceneRoundTrip),
+            ("链接保存事务失败完整回滚", LinkedSaveRollback),
+            ("链接原图修改删除恢复和布局保持", LinkedFileRefresh),
+            ("链接导入确认取消及空白拖入", LinkedImportConfirmation),
+            ("链接转换撤回重做与原图隔离", LinkedConversionUndo),
             ("正向拖拽归一化", NormalizeForward),
             ("反向拖拽归一化", NormalizeReverse),
             ("DPI 比例转换", PixelScaling),
@@ -78,6 +105,7 @@ internal static partial class Program
             ("画板资料库路径迁移", BoardStorageMigrates),
             ("资源哈希去重", AssetLibraryDeduplicates),
             ("设置窗口可构造", SettingsWindowConstructs),
+            ("场景自动保存与外部冲突保护", SceneAutoSaveBoundFiles),
             ("快捷键直接嵌入设置页", EmbeddedShortcutSettings),
             ("快捷键紧凑布局与搜索", CompactShortcutLayout),
             ("快捷键筛选后编辑与完整保存", FilteredShortcutEditing),
@@ -688,6 +716,25 @@ internal static partial class Program
             "小窗没有使用统一开关样式");
         True(!new AppSettings { CompatibleRendering = false }.Copy().CompatibleRendering,
             "全局兼容渲染设置复制失败");
+        var autoSave = (System.Windows.Controls.Primitives.ToggleButton)window.FindName("AutoSaveToggle");
+        var autoSaveInterval = (System.Windows.Controls.TextBox)window.FindName("AutoSaveIntervalInput");
+        var autoSaveRow = (FrameworkElement)window.FindName("AutoSaveIntervalRow");
+        True(autoSave.IsChecked == true && autoSaveInterval.Text == "5" && autoSaveRow.IsEnabled,
+            "自动保存默认状态或间隔不正确");
+        autoSave.IsChecked = false;
+        True(!autoSaveRow.IsEnabled, "关闭自动保存后间隔仍可编辑");
+        autoSave.IsChecked = true;
+        True(autoSaveRow.IsEnabled, "开启自动保存后间隔输入仍不可用");
+        var copiedAutoSave = new AppSettings { AutoSaveEnabled = true, AutoSaveIntervalMinutes = 999 }.Copy();
+        True(copiedAutoSave.AutoSaveEnabled && copiedAutoSave.AutoSaveIntervalMinutes == 120,
+            "自动保存设置复制或范围保护失败");
+        var selectedTab = (System.Windows.Controls.TabItem)categories.Items[0];
+        True(selectedTab.FocusVisualStyle is null, "设置左侧导航仍保留默认虚线焦点框");
+        selectedTab.ApplyTemplate();
+        var selectedChrome = (System.Windows.Controls.Border)selectedTab.Template.FindName("Chrome", selectedTab);
+        True(selectedChrome.CornerRadius == new CornerRadius(10),
+            "设置左侧导航没有使用完整圆角");
+        Equal(window.Foreground, selectedTab.Foreground);
         True(window.FindName("RepairFileAssociationButton") is System.Windows.Controls.Button &&
             window.FindName("UninstallFileAssociationButton") is System.Windows.Controls.Button &&
             window.FindName("RepairSceneThumbnailButton") is System.Windows.Controls.Button &&
@@ -821,6 +868,9 @@ internal static partial class Program
             True(window.FindName("ArrangeButton") is null, "排布按钮仍留在画板顶栏");
             True(window.FindName("LayerTopButton") is null, "层级按钮仍留在画板顶栏");
             True(window.FindName("UndoButton") is null, "撤回按钮仍留在画板顶栏");
+            typeof(BoardWindow).GetMethod("ApplyBoardShortcuts",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(window, new object[] { BoardShortcutCatalog.CreateDefaults() });
             var boardSurface = (System.Windows.Controls.Grid)window.FindName("BoardSurface");
             var undoMenu = boardSurface.ContextMenu!.Items
                 .OfType<System.Windows.Controls.MenuItem>()
@@ -1124,13 +1174,13 @@ internal static partial class Program
         foreach (var control in new FrameworkElement[] { affectsImages, affectLabel, opacityText })
             Equal(trackCenter, control.TranslatePoint(new Point(0, control.ActualHeight / 2), window).Y, .5);
         var actions = (FrameworkElement)window.FindName("SettingsActions");
-        var frameRow = (FrameworkElement)window.FindName("WindowFrameRow");
+        var frameRow = (FrameworkElement)window.FindName("MaterialAreaRow");
         var actionsTop = actions.TranslatePoint(new Point(), window).Y;
         var frameBottom = frameRow.TranslatePoint(new Point(0, frameRow.ActualHeight), window).Y;
         Equal(24d, actionsTop - frameBottom, .5);
         var bottomGap = window.ActualHeight - actions.TranslatePoint(new Point(0, actions.ActualHeight), window).Y;
         True(bottomGap >= 20 && bottomGap <= 26, $"操作按钮下方仍有多余空白：{bottomGap:0.0}");
-        True(window.ActualHeight < 400, $"紧凑布局没有缩小窗口：{window.ActualHeight:0.0}");
+        True(window.ActualHeight < 480, $"新增素材开关后布局仍有多余空白：{window.ActualHeight:0.0}");
         True(!switchTranslate.HasAnimatedProperties,
             "开关在界面首次打开时错误播放了从关到开的动画");
         bool? lastAffectsImages = null;

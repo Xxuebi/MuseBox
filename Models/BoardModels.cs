@@ -14,7 +14,8 @@ public sealed record AssetRecord(
     string FileName,
     int PixelWidth,
     int PixelHeight,
-    DateTime CreatedUtc);
+    DateTime CreatedUtc,
+    AssetSourceKind SourceKind = AssetSourceKind.Internal);
 
 public interface IBoardElement
 {
@@ -159,6 +160,7 @@ public sealed class BoardViewport
     public BoardGridStyle GridStyle { get; set; }
     public double GridSpacing { get; set; } = 32;
     public bool SnapToGrid { get; set; }
+    public bool MaterialAreaEnabled { get; set; } = true;
 }
 
 public sealed record ImportedAsset(AssetRecord Asset, string FullPath);

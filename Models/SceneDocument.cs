@@ -3,10 +3,11 @@ namespace ScreenshotCollector.Models;
 public sealed class SceneDocument
 {
     public string Format { get; set; } = "MuseBox.Scene";
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 4;
     public string Name { get; set; } = "未命名";
     public BoardViewport Viewport { get; set; } = new();
     public List<BoardItem> Images { get; set; } = new();
+    public List<BoardMaterialItem> Materials { get; set; } = new();
     public List<BoardTextItem> Texts { get; set; } = new();
     public List<BoardDrawingItem> Drawings { get; set; } = new();
     public List<BoardGroup> Groups { get; set; } = new();
@@ -16,13 +17,15 @@ public sealed class SceneDocument
     public string ThumbnailPng { get; set; } = string.Empty;
 }
 
-public sealed record SceneAsset(string Id, string Hash, string Extension, int Width, int Height);
+public sealed record SceneAsset(string Id, string Hash, string Extension, int Width, int Height,
+    AssetSourceKind SourceKind = AssetSourceKind.Internal, string ExternalPath = "");
 public sealed record SceneBinding(string DrawerId, string FilePath, long SavedRevision, string FileHash);
 public sealed record SceneSnapshot(SceneDocument Document, IReadOnlyDictionary<string, string> AssetPaths, long Revision);
 public sealed record GifSceneState(string ItemId, double Speed, bool IsPlaying, int FrameIndex);
 
 public sealed class PreparedScene : IDisposable
 {
+    public bool MoveMaterialsToBoard { get; set; }
     public SceneDocument Document { get; }
     public IReadOnlyDictionary<string, string> AssetPaths { get; }
     public string FileHash { get; }

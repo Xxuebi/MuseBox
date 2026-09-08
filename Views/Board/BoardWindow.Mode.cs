@@ -110,6 +110,7 @@ public partial class BoardWindow
             StopModeServices();
         }
         _presentationMode = mode;
+        UpdateMaterialAreaVisibility();
         _modeActivationExitArmed = false;
         _modeEpoch++;
         UpdateBoardModeMenu();
@@ -177,6 +178,7 @@ public partial class BoardWindow
 
     private void RestorePresentationVisuals()
     {
+        UpdateMaterialAreaVisibility();
         Toolbar.Visibility = Visibility.Visible;
         ToolbarToggleButton.Visibility = Visibility.Visible;
         BoardStatusHost.Visibility = Visibility.Visible;

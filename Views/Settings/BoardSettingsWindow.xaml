@@ -88,13 +88,15 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="14" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="24" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <StackPanel>
             <TextBlock FontSize="22" FontWeight="SemiBold" Text="画板外观" />
             <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource MutedTextBrush}"
-                       Text="设置仅应用于当前画板" />
+                       Text="外观设置仅应用于当前画板" />
         </StackPanel>
 
         <StackPanel Grid.Row="2">
@@ -193,7 +195,18 @@
                           Checked="OnWindowFrameChanged" Unchecked="OnWindowFrameChanged" />
         </Grid>
 
-        <StackPanel x:Name="SettingsActions" Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Grid x:Name="MaterialAreaRow" Grid.Row="8" Background="Transparent"
+              ToolTip="仅当前画板：收集到此抽屉的图片先进入素材区；关闭时将当前剩余素材移入画板，可撤回">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <TextBlock Text="素材区" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <ToggleButton x:Name="MaterialAreaToggle" Grid.Column="1" VerticalAlignment="Center"
+                          Style="{StaticResource SwitchStyle}" AutomationProperties.Name="素材区" />
+            <CheckBox x:Name="ImageImportReminderCheck" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0"
+                      Content="导入图片方式提醒" Style="{StaticResource RoundedChoiceCheckBox}"
+                      ToolTip="仅当前抽屉：勾选时每次导入都询问；关闭后使用上次选择的方式，未选择过时默认复制进画板" />
+        </Grid>
+        <StackPanel x:Name="SettingsActions" Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button MinWidth="72" Margin="0,0,8,0" Style="{StaticResource ModernButton}"
                     Content="恢复默认" Click="OnResetClick" />
             <Button MinWidth="72" Margin="0,0,8,0" Style="{StaticResource ModernButton}"

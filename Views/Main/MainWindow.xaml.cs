@@ -77,6 +77,8 @@ public partial class MainWindow : Window
             RestoreMainWindowState();
         }
         UpdatePinVisual();
+        ApplyAutoSaveSchedule();
+        // Material-area enablement belongs to each drawer's viewport.
         ApplyHotkeyRegistration();
           await ReloadDrawersAsync();
           ApplyInitialCollectionWindowHeight();
@@ -116,7 +118,7 @@ public partial class MainWindow : Window
         {
             SetBusy(true);
             var feedbackPlayed = PlayCollectionFeedback(drawerId, CreateClipboardFeedback(read));
-            var imported = await _importService.ImportClipboardAsync(drawerId, read);
+            var imported = await _importService.ImportClipboardAsync(drawerId, read, destination: await CollectionDestinationAsync(drawerId));
             ShowCollectedNotice(drawerId);
             if (!feedbackPlayed) PlayCollectionFeedback(drawerId, LoadThumbnail(imported[^1].AssetPath));
             await UpdateThumbnailAsync(drawerId, imported[^1].AssetPath);
@@ -134,7 +136,7 @@ public partial class MainWindow : Window
         {
             SetBusy(true);
             var feedbackPlayed = PlayCollectionFeedback(drawerId, ImageEditorWindow.ToSource(bitmap));
-            var imported = await _importService.ImportBitmapAsync(drawerId, bitmap);
+            var imported = await _importService.ImportBitmapAsync(drawerId, bitmap, destination: await CollectionDestinationAsync(drawerId));
             ShowCollectedNotice(drawerId);
             if (!feedbackPlayed) PlayCollectionFeedback(drawerId, LoadThumbnail(imported[^1].AssetPath));
             await UpdateThumbnailAsync(drawerId, imported[^1].AssetPath);
@@ -186,23 +188,53 @@ public partial class MainWindow : Window
         var images = paths.Where(path => !SceneFileService.IsSupportedExtension(Path.GetExtension(path)) &&
             ImageFileFormatService.FromFile(path) is not null).ToArray();
         if (drawerId is not null && images.Length > 0) await ImportFilesAsync(drawerId, images);
+        else if (images.Length > 0) SetStatus("请拖到具体抽屉", true);
         else if (scenes.Length == 0) SetStatus("拖入 .mubo 或 .iscene 文件可独立打开画板。", true);
         else if (drawerId is null && images.Length > 0) SetStatus("场景已打开；图片请拖到具体抽屉中。", false);
     }
 
+    private async void OnImportDrawerImagesClick(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy || sender is not FrameworkElement { Tag: string id }) return;
+        var picker = new Microsoft.Win32.OpenFileDialog { Title = "导入图像", Multiselect = true,
+            Filter = "图像文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff", CheckFileExists = true };
+        if (picker.ShowDialog(this) == true) await ImportFilesAsync(id, picker.FileNames);
+    }
+
     private async Task ImportFilesAsync(string drawerId, IEnumerable<string> files)
     {
+        var paths = files.ToArray();
+        if (paths.Length == 0 || _isBusy) return;
         try
         {
             SetBusy(true);
-            var paths = files.ToArray();
+            var preferences = await _repository.GetImageImportPreferencesAsync(drawerId);
+            var mode = preferences.Mode;
+            var remember = false;
+            if (preferences.AskEveryTime)
+            {
+                var name = _drawers.FirstOrDefault(x => x.Id == drawerId)?.DisplayName ?? drawerId;
+                var answer = _sceneDialogs.ChooseImageImport(this, name, paths.Length);
+                if (answer.Choice == 0) return;
+                mode = answer.Choice == 2 ? ImageImportMode.Link : ImageImportMode.Copy;
+                remember = answer.Remember;
+            }
             var feedbackPlayed = PlayCollectionFeedback(drawerId, LoadThumbnail(paths.FirstOrDefault()));
-            var imported = await _importService.ImportFilesAsync(drawerId, paths);
+            var imported = await _importService.ImportFilesAsync(drawerId, paths,
+                mode: mode, validateWholeBatch: true, destination: await CollectionDestinationAsync(drawerId));
+            if (imported.Count == 0) return;
+            var remembered = true;
+            if (preferences.AskEveryTime)
+            {
+                try { await _repository.SaveImageImportPreferencesAsync(drawerId, new(!remember, mode)); }
+                catch { remembered = false; }
+            }
             ShowCollectedNotice(drawerId);
             if (!feedbackPlayed) PlayCollectionFeedback(drawerId, LoadThumbnail(imported[^1].AssetPath));
             await UpdateThumbnailAsync(drawerId, imported[^1].AssetPath);
             ((App)Application.Current).NotifyBoardChanged(drawerId);
-            SetStatus($"已收集 {imported.Count} 张图片到画板 {drawerId}", false);
+            SetStatus(remembered ? $"已收集 {imported.Count} 张图片到画板 {drawerId}" :
+                $"已收集 {imported.Count} 张图片，但导入方式未能保存，下次仍会询问", !remembered);
         }
         catch (Exception exception) { SetStatus($"导入失败：{Friendly(exception)}", true); }
         finally { SetBusy(false); }
@@ -251,6 +283,7 @@ public partial class MainWindow : Window
             SetBusy(true);
             ((App)Application.Current).CloseBoard(drawerId);
             var files = await _repository.DeleteDrawerAsync(drawerId);
+            MaterialAreaSession.For(_repository).Clear(drawerId);
             if (model.IsBuiltIn)
             {
                 await _repository.InitializeAsync();
@@ -375,8 +408,13 @@ public partial class MainWindow : Window
                 ApplyHotkeyRegistration();
                 return;
             }
-            _settings = window.ResultSettings;
-            await _settingsService.SaveAsync(_settings);
+            if (!await ApplyMaterialSettingsAsync(window.ResultSettings))
+            {
+                ((App)Application.Current).TryConfigureBoardModeHotkey(_settings);
+                ApplyHotkeyRegistration();
+                return;
+            }
+            ApplyAutoSaveSchedule();
             LanguageService.Apply(_settings.LanguageCode);
             ThemeService.Apply(Application.Current, _settings.AppearanceMode);
             ApplyMainRenderMode();

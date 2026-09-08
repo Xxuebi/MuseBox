@@ -27,7 +27,7 @@ internal static partial class Program
         return new VisualBrush(visual) { ViewboxUnits = BrushMappingMode.Absolute, Viewbox = bounds, Stretch = Stretch.Fill };
     }
 
-    private static void SaveSettingsSnapshot(SettingsWindow window, string filename)
+    private static void SaveSettingsSnapshot(Window window, string filename)
     {
         var content = (FrameworkElement)window.Content;
         var bounds = new Rect(0, 0, content.ActualWidth, content.ActualHeight);
@@ -196,6 +196,8 @@ internal static partial class Program
             True(window.ResultSettings is null, "筛选后未检测隐藏项的快捷键冲突");
             paste.Gesture = originalPaste;
             ((TextBox)window.FindName("UndoStepLimitInput")).Text = "42";
+            ((ToggleButton)window.FindName("AutoSaveToggle")).IsChecked = true;
+            ((TextBox)window.FindName("AutoSaveIntervalInput")).Text = "17";
             ((Button)window.FindName("DisableAllShortcutsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             try { save.Invoke(window, new object[] { window, new RoutedEventArgs() }); }
             catch (TargetInvocationException e) when (e.InnerException is InvalidOperationException && window.ResultSettings is not null)
@@ -204,6 +206,8 @@ internal static partial class Program
             Equal("Ctrl+Alt+Z", window.ResultSettings.BoardShortcuts[BoardShortcutCatalog.Undo]);
             Equal(originalPaste, window.ResultSettings.BoardShortcuts[BoardShortcutCatalog.Paste]);
             Equal(42, window.ResultSettings.UndoStepLimit);
+            True(window.ResultSettings.AutoSaveEnabled && window.ResultSettings.AutoSaveIntervalMinutes == 17,
+                "自动保存开关和间隔没有写入设置结果");
             True(!window.ResultSettings.BoardShortcutsEnabled, "禁用全部状态没有保存");
         }
         finally

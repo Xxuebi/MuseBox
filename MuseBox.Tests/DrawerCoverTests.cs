@@ -105,9 +105,9 @@ internal static partial class Program
         AwaitMainTask(window, "ReloadDrawersAsync");
         True(MainDrawers(window)[0].Cover is not null && MainDrawers(window)[0].Thumbnail is not null, "重启未恢复封面");
         var menu = (DrawerMenuPopup)MainCall(window, "CreateDrawerMenu", MainDrawers(window)[0])!;
-        Equal(9, menu.Actions.Children.Count);
-        Equal("编辑封面", System.Windows.Automation.AutomationProperties.GetName(menu.Actions.Children[6]));
-        Equal("移除封面", System.Windows.Automation.AutomationProperties.GetName(menu.Actions.Children[7]));
+        Equal(11, menu.Actions.Children.Count);
+        Equal("编辑封面", System.Windows.Automation.AutomationProperties.GetName(menu.Actions.Children[8]));
+        Equal("移除封面", System.Windows.Automation.AutomationProperties.GetName(menu.Actions.Children[9]));
         var content = ArrangeMain(window, 520, 650);
         SaveDrawingTestVisual(content, "drawer-fixed-cover.png", false);
         AwaitMainTask(window, "ClearDrawerCoverAsync", "A");

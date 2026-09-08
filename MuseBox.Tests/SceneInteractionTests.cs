@@ -17,10 +17,29 @@ internal static partial class Program
 {
     private sealed class TestSceneDialogs : ISceneDialogs
     {
+        public Queue<string?> OpenPaths { get; } = new();
+        public int OpenPickerCount { get; private set; }
+        public List<(string Title, string Message, string Primary, string Alternative)> Prompts { get; } = new();
+        public string? OpenFile(Window owner)
+        {
+            OpenPickerCount++;
+            return OpenPaths.Count > 0 ? OpenPaths.Dequeue() : null;
+        }
         public Queue<string?> SavePaths { get; } = new();
         public Queue<string?> ExportPngPaths { get; } = new();
         public List<string> SuggestedNames { get; } = new();
         public Queue<int> Choices { get; } = new();
+        public int FallbackChoice { get; init; }
+        public bool RememberLinkedChoice { get; set; }
+        public bool RememberImportChoice { get; set; }
+        public int ImportPromptCount { get; private set; }
+        public (int Choice, bool Remember) ChooseImageImport(Window owner, string drawer, int count)
+        {
+            ImportPromptCount++;
+            return (Choose(owner, "导入图像", SceneDialogs.ImageImportMessage(drawer,count), "复制进画板", "链接原文件"), RememberImportChoice);
+        }
+        public (int Choice, bool Remember) ChooseLinkedSave(Window owner) =>
+            (Choose(owner, "外部链接", "", "复制进画板", "保持链接"), RememberLinkedChoice);
         public List<string> Errors { get; } = new();
         public string? SaveFile(Window owner, string name, bool saveAs)
         {
@@ -28,7 +47,11 @@ internal static partial class Program
             return SavePaths.Dequeue();
         }
         public string? SaveExportPng(Window owner, string filename) => ExportPngPaths.Count > 0 ? ExportPngPaths.Dequeue() : null;
-        public int Choose(Window owner, string title, string message, string primary, string alternative) => Choices.Dequeue();
+        public int Choose(Window owner, string title, string message, string primary, string alternative)
+        {
+            Prompts.Add((title, message, primary, alternative));
+            return Choices.Count > 0 ? Choices.Dequeue() : FallbackChoice;
+        }
         public void Inform(Window owner, string title, string message) => Errors.Add(title + ": " + message);
     }
     private static T PumpSceneTask<T>(Func<Task<T>> operation)
@@ -143,6 +166,7 @@ internal static partial class Program
             True(dialogs.Errors.Count == 0, string.Join("\n", dialogs.Errors));
             var menu = (ScreenshotCollector.Controls.DrawerMenuPopup)MainCall(main, "CreateDrawerMenu", MainDrawers(main)[0])!;
             SaveDrawingTestVisual((FrameworkElement)menu.Child, "scene-drawer-menu.png");
+            VerifyDrawerSceneReplacement(main, repository, imports, dialogs, root, first);
         }
         finally
         {
@@ -159,6 +183,161 @@ internal static partial class Program
             typeof(App).GetProperty("CollectorWindow")!.SetValue(app, oldCollector);
             Directory.Delete(root, true);
         }
+    }
+
+    private static void VerifyDrawerSceneReplacement(MainWindow main, BoardRepository repository,
+        BoardImportService imports, TestSceneDialogs dialogs, string root, string incoming)
+    {
+        bool Pick(string id, string? path)
+        {
+            dialogs.OpenPaths.Enqueue(path);
+            return PumpSceneTask(() => (Task<bool>)MainCall(main, "OpenDrawerSceneFileAsync", id)!);
+        }
+        long Revision(string id) => repository.CaptureSceneAsync(id).GetAwaiter().GetResult().Revision;
+        var promptCount = dialogs.Prompts.Count;
+        True(PumpSceneTask(() => (Task<bool>)MainCall(main, "ConfirmSceneReplacementAsync", "C")!), "空抽屉不能直接打开");
+        Equal(promptCount, dialogs.Prompts.Count);
+
+        // The new menu action opens the picker; cancelling it has no side effects.
+        var menu = (ScreenshotCollector.Controls.DrawerMenuPopup)MainCall(main, "CreateDrawerMenu",
+            MainDrawers(main).Single(d => d.Id == "D"))!;
+        var open = menu.Actions.Children.OfType<Button>().Single(b =>
+            System.Windows.Automation.AutomationProperties.GetName(b) == "打开 .mubo 文件");
+        var pickerCount = dialogs.OpenPickerCount;
+        open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Equal(pickerCount + 1, dialogs.OpenPickerCount);
+        Equal(promptCount, dialogs.Prompts.Count);
+
+        var image = LinkedTestImage(root, "replace-original.png");
+        imports.ImportFilesAsync("C", new[] { image }).GetAwaiter().GetResult();
+        var before = Revision("C");
+        dialogs.Choices.Enqueue(0);
+        True(!Pick("C", incoming), "图片抽屉取消仍被替换");
+        Equal(before, Revision("C"));
+        Equal("保存", dialogs.Prompts.Last().Primary);
+        Equal("覆盖", dialogs.Prompts.Last().Alternative);
+        True(dialogs.Prompts.Last().Message.Contains("未保存图像"), "图片抽屉没有说明未保存内容");
+        dialogs.Choices.Enqueue(2);
+        True(Pick("C", incoming), "覆盖无法打开指定抽屉");
+        Equal(incoming, repository.GetSceneBindingAsync("C").GetAwaiter().GetResult()!.FilePath);
+        PumpDrawerAnimation(200);
+
+        // Material-only drawers must be protected exactly like board images.
+        imports.ImportFilesAsync("D", new[] { image }, destination: ImageImportDestination.Materials).GetAwaiter().GetResult();
+        var material = repository.GetMaterialsAsync("D").GetAwaiter().GetResult().Single();
+        before = Revision("D");
+        dialogs.Choices.Enqueue(0);
+        True(!Pick("D", incoming), "素材抽屉取消仍被替换");
+        Equal(before, Revision("D"));
+        True(dialogs.Prompts.Last().Message.Contains("素材区"), "提醒遗漏素材区");
+        dialogs.Choices.Enqueue(1);
+        dialogs.SavePaths.Enqueue(null);
+        True(!Pick("D", incoming), "取消保存位置仍然替换");
+        Equal(before, Revision("D"));
+        dialogs.Choices.Enqueue(1);
+        dialogs.SavePaths.Enqueue(Path.Combine(root, "missing-directory", "save.mubo"));
+        True(!Pick("D", incoming), "保存失败仍然替换素材");
+        Equal(before, Revision("D"));
+        True(dialogs.Errors.Single().StartsWith("场景保存失败"), "保存失败没有准确提示");
+        dialogs.Errors.Clear();
+        var invalid = Path.Combine(root, "invalid.mubo");
+        File.WriteAllText(invalid, "not a scene");
+        promptCount = dialogs.Prompts.Count;
+        True(!Pick("D", invalid), "无效场景被接受");
+        Equal(promptCount, dialogs.Prompts.Count);
+        Equal(before, Revision("D"));
+        dialogs.Errors.Clear();
+
+        var materialBackup = Path.Combine(root, "materials-backup.mubo");
+        dialogs.SavePaths.Enqueue(materialBackup);
+        dialogs.Choices.Enqueue(1);
+        var drawerCount = repository.GetDrawersAsync().GetAwaiter().GetResult().Count;
+        True(Pick("D", incoming), "保存素材后打开失败");
+        Equal(drawerCount, repository.GetDrawersAsync().GetAwaiter().GetResult().Count);
+        using (var saved = SceneFileService.ReadAsync(materialBackup).GetAwaiter().GetResult())
+            Equal(material.Id, saved.Document.Materials.Single().Id);
+        True(File.Exists(image), "替换删除了原图");
+        Equal(0, repository.GetMaterialsAsync("D").GetAwaiter().GetResult().Count);
+        PumpDrawerAnimation(200);
+
+        // Save, then reopen that same file: never import the pre-save snapshot.
+        var current = Path.Combine(root, "same-file.mubo");
+        dialogs.SavePaths.Enqueue(current);
+        True(PumpSceneTask(() => main.SaveSceneAsync("D", true)), "另存准备失败");
+        promptCount = dialogs.Prompts.Count;
+        True(PumpSceneTask(() => (Task<bool>)MainCall(main, "ConfirmSceneReplacementAsync", "D")!), "已保存抽屉仍需提示");
+        Equal(promptCount, dialogs.Prompts.Count);
+        repository.UpdateDrawerNameAsync("D", "同文件保存后的新名称").GetAwaiter().GetResult();
+        imports.ImportFilesAsync("D", new[] { image }, destination: ImageImportDestination.Materials).GetAwaiter().GetResult();
+        before = Revision("D");
+        dialogs.Choices.Enqueue(0);
+        True(!Pick("D", current), "已绑定场景取消仍被替换");
+        Equal(before, Revision("D"));
+        True(dialogs.Prompts.Last().Message.Contains(".mubo"), "绑定场景没有提示保存修改");
+        dialogs.Choices.Enqueue(1);
+        True(Pick("D", current), "同文件保存后重开失败");
+        using (var saved = SceneFileService.ReadAsync(current).GetAwaiter().GetResult())
+        {
+            Equal("同文件保存后的新名称", saved.Document.Name);
+            Equal(1, saved.Document.Materials.Count);
+        }
+        Equal("同文件保存后的新名称", repository.GetDrawersAsync().GetAwaiter().GetResult().Single(d => d.Id == "D").DisplayName);
+        Equal(1, repository.GetMaterialsAsync("D").GetAwaiter().GetResult().Count);
+        True(dialogs.Errors.Count == 0, string.Join("\n", dialogs.Errors));
+    }
+
+    private static void SceneAutoSaveBoundFiles()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var (repository, imports) = SceneRepository(Path.Combine(root, "library"));
+            PopulateScene(repository, imports, root);
+            var path = Path.Combine(root, "autosave.mubo");
+            var initial = repository.CaptureSceneAsync("A").GetAwaiter().GetResult();
+            var initialHash = SceneFileService.WriteAsync(path, initial).GetAwaiter().GetResult();
+            repository.MarkSceneSavedAsync(new SceneBinding("A", path, initial.Revision, initialHash))
+                .GetAwaiter().GetResult();
+            repository.UpdateDrawerNameAsync("A", "自动保存后的名称").GetAwaiter().GetResult();
+
+            var main = new MainWindow(repository, imports, new TestSceneDialogs());
+            typeof(MainWindow).GetField("_settings", PrivateInstance)!.SetValue(main,
+                new AppSettings { AutoSaveEnabled = true, AutoSaveIntervalMinutes = 7 });
+            try
+            {
+                PumpSceneTask(async () =>
+                {
+                    await (Task)typeof(MainWindow).GetMethod("AutoSaveDirtyScenesAsync", PrivateInstance)!
+                        .Invoke(main, null)!;
+                    return true;
+                });
+                using (var saved = SceneFileService.ReadAsync(path).GetAwaiter().GetResult())
+                    Equal("自动保存后的名称", saved.Document.Name);
+                True(!repository.GetDrawersAsync().GetAwaiter().GetResult().Single(x => x.Id == "A").HasUnsavedScene,
+                    "自动保存后场景仍被标记为未保存");
+
+                repository.UpdateDrawerNameAsync("A", "不应覆盖外部文件").GetAwaiter().GetResult();
+                File.AppendAllText(path, "external-change");
+                var externallyChanged = File.ReadAllBytes(path);
+                PumpSceneTask(async () =>
+                {
+                    await (Task)typeof(MainWindow).GetMethod("AutoSaveDirtyScenesAsync", PrivateInstance)!
+                        .Invoke(main, null)!;
+                    return true;
+                });
+                True(externallyChanged.SequenceEqual(File.ReadAllBytes(path)),
+                    "外部修改冲突时自动保存仍覆盖了场景文件");
+                True(repository.GetDrawersAsync().GetAwaiter().GetResult().Single(x => x.Id == "A").HasUnsavedScene,
+                    "外部冲突后错误清除了未保存状态");
+            }
+            finally
+            {
+                main.Closing -= (CancelEventHandler)Delegate.CreateDelegate(typeof(CancelEventHandler), main,
+                    typeof(MainWindow).GetMethod("OnClosing", PrivateInstance | BindingFlags.DeclaredOnly)!);
+                main.Close();
+            }
+        }
+        finally { Directory.Delete(root, true); }
     }
 
     private static void SceneImportTransactionRollback()

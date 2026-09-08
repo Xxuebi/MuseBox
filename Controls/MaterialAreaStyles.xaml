@@ -1,0 +1,61 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style x:Key="MaterialHandleStyle" TargetType="Button">
+        <Setter Property="Width" Value="20" /><Setter Property="Height" Value="34" />
+        <Setter Property="Focusable" Value="False" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+        <Setter Property="Template"><Setter.Value>
+            <ControlTemplate TargetType="Button">
+                <Border x:Name="Handle" CornerRadius="0,7,7,0" Background="{TemplateBinding Background}"
+                        BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="0,1,1,1">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Handle" Property="Background" Value="{DynamicResource AccentSubtleBrush}" /></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+        </Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent">
+                        <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
+                               Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                               Value="{TemplateBinding Value}" ViewportSize="{TemplateBinding ViewportSize}">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                                    <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb MinHeight="20">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border x:Name="Handle" Margin="2,0" CornerRadius="3"
+                                                    Background="{DynamicResource MutedTextBrush}" Opacity=".4" />
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Handle" Property="Opacity" Value=".7" /></Trigger>
+                                                <Trigger Property="IsDragging" Value="True"><Setter TargetName="Handle" Property="Opacity" Value=".9" /></Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                                    <RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate></RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>
+

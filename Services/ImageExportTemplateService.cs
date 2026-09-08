@@ -36,7 +36,9 @@ public static class ImageExportTemplateService
         var images = request.Snapshot.Document.Images
             .Where(item => request.SelectedIds is null || request.SelectedIds.Contains(item.Id))
             .OrderByDescending(item => item.ZIndex).ThenBy(item => item.Id, StringComparer.Ordinal)
-            .ToArray();
+            .Concat(request.SelectedIds is null
+                ? request.Snapshot.Document.Materials.OrderByDescending(m => m.SortOrder).ThenBy(m => m.Id, StringComparer.Ordinal).Select(m => m.ToImage())
+                : Enumerable.Empty<BoardItem>()).ToArray();
         if (images.Length == 0) throw new InvalidOperationException("当前范围内没有可导出的图片。");
         if (string.IsNullOrWhiteSpace(options.NamingTemplate)) throw new InvalidDataException("命名模板不能为空。");
 

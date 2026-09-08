@@ -43,16 +43,16 @@ internal static partial class Program
         True(MainDrawers(window).All(x => x.LetterVisibility == Visibility.Collapsed), "新增抽屉未沿用隐藏字母设置");
         SaveDrawingTestVisual(content, "drawer-no-letters.png", false);
         var menu = (DrawerMenuPopup)MainCall(window, "CreateDrawerMenu", MainDrawers(window).Last())!;
-        Equal(8, menu.Actions.Children.Count);
-        Equal("打开画板,保存,另存为,导出所有图像,重命名,设置封面,删除抽屉", string.Join(',', menu.Actions.Children.OfType<Button>().Select(System.Windows.Automation.AutomationProperties.GetName)));
+        Equal(10, menu.Actions.Children.Count);
+        Equal("打开画板,打开 .mubo 文件,保存,另存为,导入图像,导出所有图像,重命名,设置封面,删除抽屉", string.Join(',', menu.Actions.Children.OfType<Button>().Select(System.Windows.Automation.AutomationProperties.GetName)));
         True(menu.Child.Effect is System.Windows.Media.Effects.DropShadowEffect, "菜单阴影丢失");
         SaveDrawingTestVisual((FrameworkElement)menu.Child, "drawer-settings-menu.png");
-        ((Button)menu.Actions.Children[5]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        ((Button)menu.Actions.Children[7]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         True(MainDrawers(window).Last().IsEditing, "菜单重命名没有进入编辑状态");
         AwaitMainTask(window, "SaveDrawerNameAsync", MainDrawers(window).Last().Id, "新的名称");
         Equal("新的名称", repository.GetDrawersAsync().GetAwaiter().GetResult().Last().DisplayName);
         var protectedMenu = (DrawerMenuPopup)MainCall(window, "CreateDrawerMenu", MainDrawers(window)[0])!;
-        True(!protectedMenu.Actions.Children[7].IsEnabled, "保留抽屉 A 的删除保护丢失");
+        True(!protectedMenu.Actions.Children[9].IsEnabled, "保留抽屉 A 的删除保护丢失");
         Equal(420d, ((DispatcherTimer)typeof(MainWindow).GetField("_drawerHoldTimer", PrivateInstance)!.GetValue(window)!).Interval.TotalMilliseconds);
     });
 
@@ -187,7 +187,7 @@ internal static partial class Program
             dialog.Height = dialog.MinHeight;
             dialog.UpdateLayout();
             var general = (ScrollViewer)((TabItem)((TabControl)dialog.FindName("SettingsCategories")).Items[0]).Content;
-            True(general.ScrollableHeight > 0, "窄窗口常规设置没有提供滚动");
+            True(general.ScrollableHeight <= 1, "精简常规页仍有不必要滚动");
             foreach (var toggleName in new[] { "ShowDrawerLettersToggle", "UseSystemScreenshotToggle" })
             {
                 var toggle = (ToggleButton)dialog.FindName(toggleName);
@@ -195,6 +195,12 @@ internal static partial class Program
                     "设置开关超出可用宽度");
             }
             SaveSettingsSnapshot(dialog, "settings-drawers-system-capture-narrow.png");
+            var categories=(TabControl)dialog.FindName("SettingsCategories");
+            categories.SelectedItem=dialog.FindName("SaveLoadSettingsTab");dialog.UpdateLayout();
+            var saveScroll=(ScrollViewer)((TabItem)categories.SelectedItem).Content;
+            saveScroll.MaxHeight=220;dialog.UpdateLayout();
+            True(saveScroll.ScrollableHeight>0 && saveScroll.VerticalScrollBarVisibility==ScrollBarVisibility.Auto,"窄窗口保存页不能滚动");
+            SaveSettingsSnapshot(dialog, "settings-save-load-narrow.png");
             ((ToggleButton)dialog.FindName("ShowDrawerLettersToggle")).IsChecked = true;
             ((ToggleButton)dialog.FindName("UseSystemScreenshotToggle")).IsChecked = false;
             try { typeof(SettingsWindow).GetMethod("OnSaveClick", PrivateInstance)!.Invoke(dialog, new object[] { dialog, new RoutedEventArgs() }); }

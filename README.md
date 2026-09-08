@@ -4,62 +4,82 @@
   <img src="Assets/app-icon-preview.png" width="112" alt="MuseBox 应用图标" />
 </p>
 
-<p align="center"><strong>把截图、图片和灵感收进抽屉，在自由画板上继续整理。</strong></p>
+<p align="center"><strong>收集灵感，整理素材，在自由画板上展开想法。</strong></p>
 
 <p align="center">
   <a href="https://github.com/Xxuebi/MuseBox/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/Xxuebi/MuseBox?display_name=tag&sort=semver"></a>
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white">
-  <img alt=".NET 8" src="https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
-MuseBox 是一款面向 Windows 的本地图片收集与视觉整理工具。它可以接收截图、剪贴板图片和本地文件，并通过抽屉、自由画板、文字、绘制、组合与图层，把零散素材整理成可继续编辑的场景。
+MuseBox 是一款 Windows 本地图片收集与视觉整理工具。用小窗将截图和图片收进不同抽屉，再从左侧素材区拖入自由画板，搭配文字、绘制、组合与图层，整理参考图、设计资料或日常灵感。
 
-## 下载
+无需注册账号，素材库和设置保存在本机。画板可以保存为可继续编辑的 `.mubo` 文件，也可以导出原图或合成图片。
 
-**[前往 GitHub Releases 下载最新便携版](https://github.com/Xxuebi/MuseBox/releases/latest)**
+## 下载与安装
 
-当前版本：**1.1.26**
+当前版本：**1.2.0** · [查看全部发行版本](https://github.com/Xxuebi/MuseBox/releases)
 
-1. 下载 `MuseBox-v1.1.26-portable.zip`。
-2. 解压到任意独立文件夹。
-3. 运行 `MuseBox.exe`。
+| 版本 | 下载 | 使用方式 |
+| --- | --- | --- |
+| 便携版 | [MuseBox-v1.2.0-portable.zip](https://github.com/Xxuebi/MuseBox/releases/download/v1.2.0/MuseBox-v1.2.0-portable.zip) | 完整解压后运行 `MuseBox.exe` |
+| 安装版 | [MuseBox-1.2.0.exe](https://github.com/Xxuebi/MuseBox/releases/download/v1.2.0/MuseBox-1.2.0.exe) | 运行安装向导，可选择桌面快捷方式与 `.mubo` 文件关联 |
 
-便携版需要 Windows 10/11 与 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)。应用数据默认保存在 `%LocalAppData%\MuseBox`，升级程序不会自动删除素材库；重要画板仍建议另存为 `.mubo` 文件备份。
+两种版本功能相同，均需要 **Windows 10/11（推荐 x64）** 和 **[.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)**。请安装 **Desktop Runtime**，仅安装普通 .NET Runtime 不够。安装版使用传统 EXE 安装方式，不需要导入 MSIX 测试证书。
 
-## 当前界面
+安装包暂未进行代码签名，Windows 可能提示未知发布者。请仅从本仓库 Releases 下载，并核对发行页的文件校验值。
 
-![MuseBox 1.1.26 主窗口](docs/images/musebox-main-v1.1.26.png)
+### 升级与数据
 
-> 由 MuseBox 1.1.26 的实际 WPF 控件渲染，使用测试用演示抽屉与占位素材，不包含用户数据。
+- 升级前先退出 MuseBox，包括托盘中的实例。建议将重要画板另存为 `.mubo` 备份。
+- 便携版请解压到新文件夹；安装版可安装到原位置进行更新。
+- 默认数据路径为 `%LocalAppData%\MuseBox`，也可在“保存和加载”中调整。便携版表示程序免安装，**不表示素材库自动随程序文件夹移动**。
+- 使用“链接原文件”导入的图片仍依赖原路径；移动、删除原图或换电脑后，链接可能失效。需要独立携带画板时，保存时选择“复制进画板”。
 
-![MuseBox 1.1.26 画板演示](docs/images/musebox-board-demo-v1.1.26.png)
+## 你可以用它做什么
 
-> 画板截图同样来自当前版本的真实界面渲染；画面内容是程序生成的演示图形，不是真实工程或个人素材，界面控件未作重绘。
+### 先收集，再整理
 
-## 主要功能
+小窗按抽屉分类，接收截图、剪贴板图片和本地图片。每个画板都有独立的素材区开关，默认开启：从小窗收集的图片先放在左侧素材区，整理时再拖入画板。
 
-- **快速收集**：接收截图、剪贴板图片和本地图片，按抽屉分类整理。
-- **自由画板**：缩放、平移、旋转和调整图片，也可添加文字与绘制内容。
-- **组合与图层**：支持图片、文字、绘制混合组合、多层嵌套、锁定、重命名和拖动排序。
-- **排列工具**：自动排列、四向对齐、等距排列以及水平／垂直分布。
-- **图片编辑**：裁剪、旋转、翻转、透明度与颜色调整，并支持 GIF 预览和逐帧浏览。
-- **网格与吸附**：线／点网格随画板缩放细分，可独立启用移动吸附。
-- **场景文件**：使用 `.mubo` 保存可继续编辑的画板、层级、组合和视图状态。
-- **灵活导出**：按模板批量导出原图或转换为 PNG、JPG、BMP，也可合成透明 PNG。
-- **画板模式**：提供鼠标穿透、透明编辑和相对指定应用窗口的智能置顶。
-- **本地优先**：素材索引、设置和画板数据保存在本机，不会由 MuseBox 主动上传。
+素材区可收纳、调整大小、多选和批量移入，重启后仍保留；直接粘贴或拖入画板的图片则直接放到画板上。
 
-## 快速使用
+### 在自由画板上组织内容
 
-1. 复制图片、截图或拖入本地图片，在主窗口中选择抽屉保存。
-2. 打开画板并放置素材；使用文字、绘制和组合继续整理。
-3. 在图层面板管理顺序与父子关系，或通过右键菜单排列所选内容。
-4. 使用“保存”将工作另存为 `.mubo`，使用“导出”输出单张资源或合成图片。
+- 缩放、平移、旋转和调整图片，添加文字注释与绘制内容。
+- 图片、文字和绘制可混合组合，支持嵌套分组与图层排序。
+- 自动排列、四向对齐、等距排列及水平／垂直分布，让素材更容易比较。
+- 使用自适应线／点网格和移动吸附；临时去色，专注明暗关系。
+- 鼠标穿透、透明画板和智能置顶模式，方便与其他应用配合使用。
 
-常用画板快捷键：
+### 保留原图，也能继续编辑
 
-| 操作 | 快捷键 |
+支持图片裁剪、旋转、翻转、透明度与颜色调整，以及 GIF 播放、逐帧浏览和动图复制。
+
+导入时可选择：
+
+- **复制进画板**：将图像复制到本地素材库，不再依赖原文件。
+- **链接原文件**：不复制原图，原图修改后刷新；缺失时保留元素和路径提示。
+
+导入方式可以按抽屉记忆，也可在画板设置中重新开启询问。
+
+### 保存、分享和导出
+
+- `.mubo` 保存画板内容、素材区、组合、图层和视图状态，并兼容旧版场景。
+- 自动保存默认开启，定时更新已保存过的画板；未绑定场景文件的临时画板不会自动新建文件。
+- 抽屉菜单支持保存、另存为，以及在当前抽屉打开 `.mubo`；替换未保存内容前会询问保存、取消或覆盖。
+- 将 `.mubo` 拖到小窗可独立打开，不替换当前抽屉。
+- 批量导出可保留原格式，或转换为 PNG / JPG / BMP，支持命名模板；也可将画板合成 PNG。
+- “导出所有图像”的逐张导出包含素材区；所选导出、合成 PNG、排列与适应全部仍针对画板内容。
+
+## 快速上手
+
+1. 打开 MuseBox，选择或新建抽屉，收集截图或导入图片。
+2. 点击“打开画板”，把左侧素材拖到画板，按需要排列、标注和分组。
+3. 按 `Ctrl+S` 保存为 `.mubo`；外部链接需要随文件携带时，选择复制进画板。
+4. 需要输出图片时，使用抽屉菜单“导出所有图像”，或画板右键菜单“保存 → 导出”。
+
+| 常用操作 | 默认快捷键 |
 | --- | --- |
 | 复制 / 粘贴 | `Ctrl+C` / `Ctrl+V` |
 | 撤回 / 重做 | `Ctrl+Z` / `Ctrl+Y` |
@@ -69,11 +89,11 @@ MuseBox 是一款面向 Windows 的本地图片收集与视觉整理工具。它
 | 组合 / 解散组合 | `Ctrl+G` / `Ctrl+Shift+G` |
 | 退出画板模式 | `Ctrl+Shift+F12` |
 
-快捷键可在设置中修改；低频命令默认不占用按键。
+快捷键可在设置中修改；系统级“退出画板模式”快捷键不受画板快捷键总开关影响。
 
 ## 从源码构建
 
-需要 Windows 10/11 和 [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)。
+需要 Windows、[.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)；解决方案包含 WPF 应用、测试与 .NET Framework 缩略图组件。
 
 ```powershell
 git clone https://github.com/Xxuebi/MuseBox.git
@@ -81,30 +101,15 @@ cd MuseBox
 dotnet restore .\MuseBox.sln
 dotnet build .\MuseBox.sln -c Release
 dotnet run --project .\MuseBox.Tests\MuseBox.Tests.csproj -c Release
+dotnet publish .\MuseBox.csproj -c Release -o .\publish\v1.2.0 --no-self-contained
 ```
 
-生成便携版：
+安装版使用 [Inno Setup](https://jrsoftware.org/isinfo.php) 编译 `Installer/MuseBox.iss`，将上述发布目录中的程序打包。
 
-```powershell
-dotnet publish .\MuseBox.csproj -c Release -o .\publish\v1.1.26 --no-self-contained
-```
+源码主要分为 `Views`（窗口与界面）、`Controls`（自定义控件）、`Models`（数据模型）、`Services`（导入、资料库与场景服务），测试位于 `MuseBox.Tests`。
 
-## 项目结构
+## 反馈与许可证
 
-```text
-MuseBox/
-├─ Assets/                     图标与应用资源
-├─ Controls/                   自定义 WPF 控件
-├─ Models/                     数据模型
-├─ Services/                   场景、图层、导出与资料库服务
-├─ Views/                      主窗口、画板、编辑器、设置与对话框
-├─ MuseBox.Tests/              自动化测试
-├─ MuseBox.ThumbnailProvider/  .mubo 资源管理器缩略图组件
-└─ Installer/                  安装包脚本
-```
-
-版本变化见 [CHANGELOG.md](CHANGELOG.md)，问题与建议请提交到 [Issues](https://github.com/Xxuebi/MuseBox/issues)。
-
-## 许可证
+遇到问题或有功能建议，请提交 [Issue](https://github.com/Xxuebi/MuseBox/issues)，尽量附上版本、复现步骤和不含隐私的截图。详细版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 MuseBox 使用 [MIT License](LICENSE) 开源。

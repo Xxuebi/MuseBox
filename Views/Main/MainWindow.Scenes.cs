@@ -10,7 +10,10 @@ public partial class MainWindow
 {
     private readonly ISceneDialogs _sceneDialogs;
     private readonly DispatcherTimer _sceneStatusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _autoSaveTimer = new();
+    private ExternalImageMonitor? _externalImageMonitor;
     private bool _sceneStatusReading;
+    private bool _autoSaveRunning;
     public bool SceneOperationBusy { get; private set; }
     public bool IsOperationBusy => _isBusy;
 
@@ -20,12 +23,81 @@ public partial class MainWindow
         {
             if (_sceneStatusReading || _isBusy) return;
             _sceneStatusReading = true;
-            try { await RefreshSceneStatusAsync(); }
+            try
+            {
+                _externalImageMonitor ??= new ExternalImageMonitor(_repository);
+                var changes = await _externalImageMonitor.PollAsync();
+                foreach (var group in changes.GroupBy(change => change.DrawerId))
+                {
+                    ((App)Application.Current).FindBoard(group.Key)?.RefreshLinkedImagePaths(group.Select(c => c.Path).ToHashSet(StringComparer.OrdinalIgnoreCase));
+                    if (_drawers.Any(d => d.Id == group.Key) && await _repository.GetLatestAssetPathAsync(group.Key) is { } latest)
+                        await UpdateThumbnailAsync(group.Key, latest);
+                }
+                await RefreshSceneStatusAsync();
+            }
             catch (Exception) { /* Database may be briefly unavailable; the save command reports failures. */ }
             finally { _sceneStatusReading = false; }
         };
+        _autoSaveTimer.Tick += async (_, _) => await AutoSaveDirtyScenesAsync();
         Loaded += (_, _) => _sceneStatusTimer.Start();
-        Closed += (_, _) => _sceneStatusTimer.Stop();
+        Closed += (_, _) =>
+        {
+            _sceneStatusTimer.Stop();
+            _externalImageMonitor?.Dispose();
+            _autoSaveTimer.Stop();
+        };
+    }
+
+    private void ApplyAutoSaveSchedule()
+    {
+        _autoSaveTimer.Stop();
+        _autoSaveTimer.Interval = TimeSpan.FromMinutes(Math.Clamp(_settings.AutoSaveIntervalMinutes, 1, 120));
+        if (_settings.AutoSaveEnabled) _autoSaveTimer.Start();
+    }
+
+    private async Task AutoSaveDirtyScenesAsync()
+    {
+        if (_autoSaveRunning || _isBusy || SceneOperationBusy || !_settings.AutoSaveEnabled) return;
+        _autoSaveRunning = true;
+        SceneOperationBusy = true;
+        SetBusy(true);
+        try
+        {
+            var dirty = (await _repository.GetDrawersAsync())
+                .Where(drawer => drawer.HasUnsavedScene && !string.IsNullOrWhiteSpace(drawer.ScenePath))
+                .ToArray();
+            var saved = 0;
+            foreach (var drawer in dirty)
+            {
+                var binding = await _repository.GetSceneBindingAsync(drawer.Id);
+                if (binding is null || string.IsNullOrWhiteSpace(binding.FilePath)) continue;
+                try
+                {
+                    using var lease = await PrepareSceneBoardAsync(drawer.Id);
+                    var snapshot = await _repository.CaptureSceneAsync(drawer.Id);
+                    await PersistSceneSnapshotAsync(drawer.Id, binding.FilePath, snapshot, binding.FileHash,
+                        _settings.AskBeforeSavingLinks ? ExternalImageSaveMode.KeepLinks : _settings.LinkedImageSaveMode);
+                    saved++;
+                }
+                catch (SceneFileConflictException)
+                {
+                    SetStatus($"自动保存已跳过：{Path.GetFileName(binding.FilePath)} 已被外部修改", true);
+                }
+                catch (Exception error)
+                {
+                    SetStatus($"自动保存失败：{Friendly(error)}", true);
+                }
+            }
+            if (saved > 0) SetStatus($"已自动保存 {saved} 个场景", false);
+        }
+        catch (Exception error) { SetStatus($"自动保存失败：{Friendly(error)}", true); }
+        finally
+        {
+            _autoSaveRunning = false;
+            SceneOperationBusy = false;
+            SetBusy(false);
+            await TryRefreshSceneStatusAsync();
+        }
     }
     private async Task RefreshSceneStatusAsync()
     {
@@ -44,6 +116,20 @@ public partial class MainWindow
     {
         if (!_isBusy && sender is FrameworkElement { Tag: string id })
             ((App)Application.Current).OpenBoard(id);
+    }
+    private async void OnOpenDrawerSceneFileClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string id }) await OpenDrawerSceneFileAsync(id);
+    }
+    private async Task<bool> OpenDrawerSceneFileAsync(string id)
+    {
+        if (_isBusy) return false;
+        try
+        {
+            var path = _sceneDialogs.OpenFile(this);
+            return path is not null && await OpenSceneFileAsync(path, id);
+        }
+        catch (Exception error) { ShowSceneError("无法打开画板", error); return false; }
     }
     private async void OnSaveSceneClick(object sender, RoutedEventArgs e)
     {
@@ -95,21 +181,64 @@ public partial class MainWindow
             }
         }
         var snapshot = await _repository.CaptureSceneAsync(id);
+        var mode = _settings.LinkedImageSaveMode;
+        var remember = false;
+        if (snapshot.Document.Assets.Any(a => a.SourceKind == AssetSourceKind.External) && _settings.AskBeforeSavingLinks)
+        {
+            var choice = _sceneDialogs.ChooseLinkedSave(owner);
+            if (choice.Choice == 0) return false;
+            mode = choice.Choice == 1 ? ExternalImageSaveMode.Copy : ExternalImageSaveMode.KeepLinks;
+            remember = choice.Remember;
+        }
         var expected = binding is not null && string.Equals(binding.FilePath, path, StringComparison.OrdinalIgnoreCase) ? binding.FileHash : null;
-        string hash;
         SetStatus("正在打包场景，请稍候…", false);
-        try { hash = await Task.Run(() => SceneFileService.WriteAsync(path, snapshot, expected)); }
+        try { await PersistSceneSnapshotAsync(id, path, snapshot, expected, mode); }
         catch (SceneFileConflictException)
         {
             var choice = _sceneDialogs.Choose(owner, "场景文件已改变", "原文件已被修改、移走或删除。确认覆盖会使用当前画板内容。", "确认覆盖", "另存为");
             if (choice == 0) return false;
             if (choice == 2) return await SaveSceneCoreAsync(id, true, owner);
-            hash = await Task.Run(() => SceneFileService.WriteAsync(path, snapshot));
+            await PersistSceneSnapshotAsync(id, path, snapshot, null, mode);
         }
-        await _repository.MarkSceneSavedAsync(new SceneBinding(id, Path.GetFullPath(path), snapshot.Revision, hash));
+        if (remember)
+        {
+            _settings.AskBeforeSavingLinks = false;
+            _settings.LinkedImageSaveMode = mode;
+            try { await _settingsService.SaveAsync(_settings); }
+            catch { /* Saving the scene has already succeeded. */ }
+        }
         SetStatus($"场景已保存：{Path.GetFileName(path)}", false);
         return true;
     }
+    private async Task PersistSceneSnapshotAsync(string id, string path, SceneSnapshot snapshot,
+        string? expected, ExternalImageSaveMode mode)
+    {
+        if (!snapshot.Document.Assets.Any(a => a.SourceKind == AssetSourceKind.External))
+        {
+            var hash = await Task.Run(() => SceneFileService.WriteAsync(path, snapshot, expected));
+            await _repository.MarkSceneSavedAsync(new SceneBinding(id, Path.GetFullPath(path), snapshot.Revision, hash));
+            return;
+        }
+        var board = ((App)Application.Current).FindBoard(id);
+        var completeConversion = board?.PrepareLinkedConversionUndo();
+        var previousMaterials = board is null ? await _repository.GetMaterialsAsync(id) : Array.Empty<BoardMaterialItem>();
+        var previousImages = board is null ? await _repository.GetItemsAsync(id) : Array.Empty<BoardItem>();
+        var converted = await LinkedSceneSaveService.SaveAsync(_repository, _importService, id, path, snapshot, mode, expected);
+        if (converted && completeConversion is not null) await completeConversion();
+        else if (converted)
+        {
+            var materials = await _repository.GetMaterialsAsync(id);
+            var images = await _repository.GetItemsAsync(id);
+            var oldMaterials = previousMaterials.Where(m => materials.Any(a => a.Id == m.Id && a.AssetId != m.AssetId)).ToArray();
+            var oldImages = previousImages.Where(m => images.Any(a => a.Id == m.Id && a.AssetId != m.AssetId)).ToArray();
+            MaterialAreaSession.For(_repository).Queue(new MaterialChange(id, oldMaterials,
+                materials.Where(m => oldMaterials.Any(o => o.Id == m.Id)).ToArray(), oldImages,
+                images.Where(m => oldImages.Any(o => o.Id == m.Id)).ToArray()));
+        }
+        if (converted && _drawers.FirstOrDefault(x => x.Id == id) is not null &&
+            await _repository.GetLatestAssetPathAsync(id) is { } latest) await UpdateThumbnailAsync(id, latest);
+    }
+
     public async Task<bool> ExportBoardAsync(string id, IReadOnlySet<string>? selectedIds,
         BoardExportMode mode, Window? owner = null)
     {
@@ -204,14 +333,23 @@ public partial class MainWindow
             using var prepared = await Task.Run(() => SceneFileService.ReadAsync(path));
             using var lease = targetDrawer is not null ? await PrepareSceneBoardAsync(targetDrawer) : null;
             if (targetDrawer is not null && !await ConfirmSceneReplacementAsync(targetDrawer)) return false;
+            // Saving may have replaced the very file selected for opening. Use its
+            // newly saved contents, not the snapshot validated before the prompt.
+            var binding = targetDrawer is not null ? await _repository.GetSceneBindingAsync(targetDrawer) : null;
+            using var savedScene = binding is not null &&
+                string.Equals(binding.FilePath, path, StringComparison.OrdinalIgnoreCase) && binding.FileHash != prepared.FileHash
+                ? await Task.Run(() => SceneFileService.ReadAsync(path)) : null;
+            var incoming = savedScene ?? prepared;
             // Keep the old window frozen until the transaction succeeds. If import
             // fails it remains intact; it cannot commit old state after replacement.
-            var id = await Task.Run(() => _repository.ImportSceneAsync(targetDrawer, prepared, path));
+            incoming.MoveMaterialsToBoard = !incoming.Document.Viewport.MaterialAreaEnabled;
+            var id = await Task.Run(() => _repository.ImportSceneAsync(targetDrawer, incoming, path));
+            MaterialAreaSession.For(_repository).Clear(id);
             if (targetDrawer is not null) app.FindBoard(targetDrawer)?.CloseForSceneReplacement();
             await ReloadDrawersAsync();
             app.OpenBoard(id);
             SetStatus($"已打开场景：{Path.GetFileName(path)}", false);
-            var missing = SceneFontService.MissingFonts(prepared.Document);
+            var missing = SceneFontService.MissingFonts(incoming.Document);
             if (missing.Count > 0)
                 _sceneDialogs.Inform(this, "部分字体未安装", $"本机缺少：{string.Join("、", missing.Take(8))}。已使用系统替代字体；原字体名称和文字格式仍保留。");
             return true;
@@ -225,14 +363,19 @@ public partial class MainWindow
         var binding = await _repository.GetSceneBindingAsync(id);
         var d = snapshot.Document;
         var v = d.Viewport;
-        var hasContent = d.Images.Count + d.Texts.Count + d.Drawings.Count > 0 || d.Cover is not null ||
+        var hasContent = d.Images.Count + d.Texts.Count + d.Drawings.Count + d.Materials.Count > 0 || d.Cover is not null ||
             d.Name != "未命名" || v.BackgroundColor != "#7A7A7A" || v.WindowOpacity != 1 ||
             v.OpacityAffectsImages || !v.ShowWindowFrame || v.Topmost || v.Zoom != 1 || v.PanX != 0 || v.PanY != 0 ||
             v.WindowWidth != 1100 || v.WindowHeight != 760 || v.WindowLeft is not null || v.WindowTop is not null;
         if (binding is not null ? snapshot.Revision <= binding.SavedRevision : !hasContent) return true;
+        var message = binding is null
+            ? $"当前抽屉“{d.Name}”内有未保存图像或其他内容（包含素材区）。是否先保存？"
+            : $"当前抽屉“{d.Name}”的 .mubo 画板有未保存的修改。是否先保存？";
         var choice = _sceneDialogs.Choose(this, "打开前保存当前画板？",
-            "打开场景将替换这个抽屉的内容。不保存会放弃当前尚未写入场景文件的内容。", "保存", "不保存");
-        return choice == 2 || choice == 1 && await SaveSceneCoreAsync(id, false, this);
+            message + "\n\n保存：保存成功后打开所选文件。\n覆盖：不保存当前内容，直接替换此抽屉；不会删除原 .mubo 文件或外部图像。", "保存", "覆盖");
+        if (choice != 1) return choice == 2;
+        try { return await SaveSceneCoreAsync(id, false, this); }
+        catch (Exception error) { ShowSceneError("场景保存失败", error); return false; }
     }
     public async Task<bool> ConfirmSceneExitAsync()
     {

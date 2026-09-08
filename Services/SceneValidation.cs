@@ -13,7 +13,7 @@ public static class SceneValidation
     public const int MaxGroups = 100000;
     public static void Validate(SceneDocument scene)
     {
-        if (scene.Format is not ("MuseBox.Scene" or "InspirationCollector.Scene") || scene.Version is not (1 or 2))
+        if (scene.Format is not ("MuseBox.Scene" or "InspirationCollector.Scene") || scene.Version is not (1 or 2 or 3 or 4))
             throw new InvalidDataException("无法打开此场景版本，请使用支持该版本的 MuseBox。");
         SceneMigration.UpgradeToCurrent(scene);
         Require(scene.Name is { Length: > 0 and <= 30 } && !scene.Name.Any(char.IsControl), "画板名称无效");
@@ -21,7 +21,7 @@ public static class SceneValidation
             scene.Gifs is not null && scene.Viewport is not null, "场景缺少内容");
         var elements = scene.Images!.Cast<BoardElement>().Concat(scene.Texts!).Concat(scene.Drawings!).ToList();
         var sceneGroups = scene.Groups!;
-        Require(elements.Count <= MaxElements && sceneGroups.Count <= MaxGroups && scene.Assets!.Count <= MaxAssets, "场景内容超出安全上限");
+        Require(scene.Materials is not null && elements.Count + scene.Materials.Count <= MaxElements && sceneGroups.Count <= MaxGroups && scene.Assets!.Count <= MaxAssets, "场景内容超出安全上限");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in elements)
         {
@@ -47,9 +47,11 @@ public static class SceneValidation
         foreach (var a in scene.Assets!)
         {
             Require(a is not null && Key(a.Id) && !assets.ContainsKey(a.Id), "资源编号无效或重复");
-            Require(Regex.IsMatch(a!.Hash ?? "", "^[a-f0-9]{64}$") && hashes.Add(a.Hash!) &&
+            Require(Enum.IsDefined(a!.SourceKind) && Regex.IsMatch(a.Hash ?? "", "^[a-f0-9]{64}$") &&
+                hashes.Add(a.SourceKind == AssetSourceKind.External ? AssetPathResolver.ExternalIdentity(a.ExternalPath) : a.Hash!) &&
                 new[] { ".png", ".jpg", ".bmp", ".gif", ".tif", ".tiff" }.Contains(a.Extension), "资源格式无效或重复");
             Require(a.Width > 0 && a.Height > 0 && (long)a.Width * a.Height <= 100_000_000, "图片尺寸超出安全上限");
+            Require(a.SourceKind == AssetSourceKind.External || a.ExternalPath == "", "内嵌资源不得含外部路径");
             assets.Add(a.Id, a);
         }
         var referenced = new HashSet<string>();
@@ -59,6 +61,12 @@ public static class SceneValidation
             Require(image.AssetPath == "", "图片路径无效");
             referenced.Add(image.AssetId!);
             ValidateLinks(image.WebLink, image.FileLink);
+        }
+        foreach (var material in scene.Materials!)
+        {
+            Require(material is not null && Key(material.Id) && ids.Add(material.Id) &&
+                assets.ContainsKey(material.AssetId ?? "") && ValidLayerName(material.LayerName), "素材编号或资源引用无效");
+            referenced.Add(material!.AssetId!);
         }
         foreach (var text in scene.Texts!)
         {

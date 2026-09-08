@@ -298,6 +298,36 @@
             </Setter>
         </Style>
 
+        <Style x:Key="RoundedChoiceCheckBox" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <Border x:Name="Box" Width="17" Height="17" CornerRadius="4" VerticalAlignment="Center"
+                                    Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
+                                <TextBlock x:Name="Tick" Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+                            </Border>
+                            <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value=".5" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="MinHeight" Value="36" />

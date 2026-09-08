@@ -974,6 +974,13 @@
                         Click="OnDrawClick">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE70F;" />
                 </Button>
+                <ToggleButton x:Name="MaterialsButton" Style="{StaticResource LayerToggleButton}" ToolTip="素材区"
+                              Click="OnMaterialsToolbarClick" AutomationProperties.Name="素材区">
+                    <Grid Width="17" Height="17">
+                        <Path Stroke="{DynamicResource ToolbarTextBrush}" StrokeThickness="1.2" StrokeLineJoin="Round"
+                              Data="M1,2 H16 V15 H1 Z M6,2 V15 M8,12 L11,8 L13,10 L15,7" />
+                    </Grid>
+                </ToggleButton>
                 <ToggleButton x:Name="LayersButton" Style="{StaticResource LayerToggleButton}" ToolTip="图层"
                               Checked="OnLayersToggleChanged" Unchecked="OnLayersToggleChanged">
                     <Grid Width="17" Height="17">

@@ -10,6 +10,14 @@ public sealed partial class BoardRepository
     {
         SceneMigration.UpgradeToCurrent(scene.Document);
         SceneValidation.Validate(scene.Document);
+        var movedMaterials = scene.MoveMaterialsToBoard && scene.Document.Materials.Count > 0;
+        if (movedMaterials)
+        {
+            var snapshot = new SceneSnapshot(scene.Document, scene.AssetPaths, 0);
+            var move = MaterialAreaService.PlanMove(snapshot, "", scene.Document.Materials.OrderByDescending(m => m.SortOrder).ThenBy(m => m.Id).ToArray());
+            scene.Document.Images.AddRange(move.AfterImages);
+            scene.Document.Materials.Clear();
+        }
         await _gate.WaitAsync(cancellationToken);
         try
         {
@@ -38,6 +46,21 @@ public sealed partial class BoardRepository
             var assets = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var asset in scene.Document.Assets)
             {
+                if (asset.SourceKind == AssetSourceKind.External)
+                {
+                    var key = AssetPathResolver.ExternalIdentity(asset.ExternalPath);
+                    var linked = (await SceneRowsAsync<AssetRecord>(connection, transaction,
+                        "SELECT id Id,content_hash Hash,extension Extension,file_name FileName,pixel_width PixelWidth,pixel_height PixelHeight,created_utc CreatedUtc,source_kind SourceKind FROM assets WHERE hash=$id",
+                        key, cancellationToken)).SingleOrDefault();
+                    var linkId = linked?.Id ?? Guid.NewGuid().ToString("N");
+                    if (linked is null) await ExecuteSceneAsync(connection, transaction,
+                        "INSERT INTO assets(id,hash,extension,file_name,pixel_width,pixel_height,created_utc,source_kind,content_hash) VALUES($id,$key,$ext,$path,$w,$h,$date,1,$hash)",
+                        cancellationToken, ("$id", linkId), ("$key", key), ("$ext", asset.Extension),
+                        ("$path", AssetPathResolver.NormalizeExternalPath(asset.ExternalPath)), ("$w", asset.Width), ("$h", asset.Height),
+                        ("$date", DateTime.UtcNow.ToString("O")), ("$hash", asset.Hash));
+                    assets.Add(asset.Id, linkId);
+                    continue;
+                }
                 var found = (await SceneRowsAsync<AssetRecord>(connection, transaction, """
                     SELECT id Id,hash Hash,extension Extension,file_name FileName,pixel_width PixelWidth,pixel_height PixelHeight,created_utc CreatedUtc
                     FROM assets WHERE hash=$id
@@ -70,10 +93,16 @@ public sealed partial class BoardRepository
             }
             // Do not delete the drawer row: its identity and sidebar order survive.
             // Old immutable assets remain available to other drawers.
-            foreach (var table in new[] { "items", "text_items", "drawing_items", "board_groups", "drawer_covers", "scene_bindings" })
+            foreach (var table in new[] { "items", "text_items", "drawing_items", "board_groups", "board_materials", "drawer_covers", "scene_bindings" })
                 await ExecuteSceneAsync(connection, transaction, $"DELETE FROM {table} WHERE drawer_id=$id", cancellationToken, ("$id", drawerId));
             await ExecuteSceneAsync(connection, transaction, "UPDATE drawers SET display_name=$name WHERE id=$id", cancellationToken,
                 ("$id", drawerId), ("$name", scene.Document.Name));
+            foreach (var sourceMaterial in scene.Document.Materials)
+            {
+                var material = sourceMaterial.Clone();
+                material.Id = Guid.NewGuid().ToString("N"); material.DrawerId = drawerId; material.AssetId = assets[material.AssetId];
+                await InsertMaterialAsync(connection, transaction, material, cancellationToken);
+            }
             var itemIds = new Dictionary<string, string>();
             var groupIds = scene.Document.Groups.ToDictionary(group => group.Id,
                 _ => Guid.NewGuid().ToString("N"), StringComparer.Ordinal);
@@ -146,21 +175,21 @@ public sealed partial class BoardRepository
                     ("$id", itemIds[gif.ItemId]), ("$speed", gif.Speed), ("$playing", gif.IsPlaying), ("$frame", gif.FrameIndex));
             var view = scene.Document.Viewport;
             await ExecuteSceneAsync(connection, transaction, """
-                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid)
-                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affect,$showFrame,$gridStyle,$gridSpacing,$snap)
+                INSERT INTO viewports(drawer_id,pan_x,pan_y,zoom,window_left,window_top,window_width,window_height,topmost,background_color,window_opacity,opacity_affects_images,show_window_frame,grid_style,grid_spacing,snap_to_grid,material_area_enabled)
+                VALUES($id,$x,$y,$zoom,$left,$top,$width,$height,$pin,$background,$opacity,$affect,$showFrame,$gridStyle,$gridSpacing,$snap,$materials)
                 ON CONFLICT(drawer_id) DO UPDATE SET pan_x=$x,pan_y=$y,zoom=$zoom,window_left=$left,window_top=$top,
                     window_width=$width,window_height=$height,topmost=$pin,background_color=$background,window_opacity=$opacity,opacity_affects_images=$affect,show_window_frame=$showFrame,
-                    grid_style=$gridStyle,grid_spacing=$gridSpacing,snap_to_grid=$snap
+                    grid_style=$gridStyle,grid_spacing=$gridSpacing,snap_to_grid=$snap,material_area_enabled=$materials
                 """, cancellationToken, ("$id", drawerId), ("$x", view.PanX), ("$y", view.PanY), ("$zoom", view.Zoom),
                 ("$left", view.WindowLeft), ("$top", view.WindowTop), ("$width", view.WindowWidth), ("$height", view.WindowHeight),
                 ("$pin", view.Topmost), ("$background", view.BackgroundColor), ("$opacity", view.WindowOpacity), ("$affect", view.OpacityAffectsImages),
                 ("$showFrame", view.ShowWindowFrame), ("$gridStyle", (int)view.GridStyle),
-                ("$gridSpacing", view.GridSpacing), ("$snap", view.SnapToGrid));
+                ("$gridSpacing", view.GridSpacing), ("$snap", view.SnapToGrid), ("$materials", view.MaterialAreaEnabled));
             query.Parameters.Clear();
             query.CommandText = "SELECT COALESCE((SELECT revision FROM scene_revisions WHERE drawer_id=$id),0)";
             query.Parameters.AddWithValue("$id", drawerId);
             var revision = Convert.ToInt64(await query.ExecuteScalarAsync(cancellationToken));
-            await WriteSceneBindingAsync(connection, transaction, new SceneBinding(drawerId, Path.GetFullPath(filePath), revision, scene.FileHash), cancellationToken);
+            await WriteSceneBindingAsync(connection, transaction, new SceneBinding(drawerId, Path.GetFullPath(filePath), movedMaterials ? revision - 1 : revision, scene.FileHash), cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return drawerId;
         }

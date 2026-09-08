@@ -6,6 +6,19 @@ public interface IBoardRepository
 {
     Task ApplyElementPositionsAsync(string drawerId, IReadOnlyList<BoardElementPosition> positions,
         CancellationToken cancellationToken = default);
+    Task CommitSceneSaveAsync(string drawerId, string path, string stagedFile, string hash, long revision,
+        IReadOnlyDictionary<string, string> converted, string? expectedHash, CancellationToken token = default)
+        => throw new NotSupportedException("资料库不支持事务保存。");
+    Task<IReadOnlyList<AssetRecord>> GetLinkedAssetsAsync(CancellationToken token = default)
+        => Task.FromResult<IReadOnlyList<AssetRecord>>(Array.Empty<AssetRecord>());
+    Task<IReadOnlyList<string>> RefreshLinkedAssetAsync(AssetRecord asset, CancellationToken token = default)
+        => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+    Task<IReadOnlyList<BoardMaterialItem>> GetMaterialsAsync(string drawerId, CancellationToken token = default)
+        => Task.FromResult<IReadOnlyList<BoardMaterialItem>>(Array.Empty<BoardMaterialItem>());
+    Task AddMaterialsAsync(IReadOnlyList<BoardMaterialItem> items, CancellationToken token = default)
+        => throw new NotSupportedException();
+    Task ApplyMaterialChangesAsync(IReadOnlyList<MaterialChange> changes, Func<Task>? beforeCommit = null, CancellationToken token = default)
+        => throw new NotSupportedException();
     Task InitializeAsync(CancellationToken cancellationToken = default);
     Task<SceneSnapshot> CaptureSceneAsync(string drawerId, CancellationToken cancellationToken = default);
     Task<SceneBinding?> GetSceneBindingAsync(string drawerId, CancellationToken cancellationToken = default);
@@ -37,6 +50,12 @@ public interface IBoardRepository
     Task<IReadOnlyList<BoardGroup>> GetGroupsAsync(string drawerId, CancellationToken cancellationToken = default);
     Task ApplyLayerTreeAsync(string drawerId, IReadOnlyList<BoardGroup> groups,
         IReadOnlyList<BoardElement> elements, CancellationToken cancellationToken = default);
+    Task SetMaterialAreaEnabledAsync(string drawerId, bool enabled, MaterialChange? change = null, CancellationToken token = default)
+        => throw new NotSupportedException();
+    Task<ImageImportPreferences> GetImageImportPreferencesAsync(string drawerId, CancellationToken token = default)
+        => Task.FromResult(new ImageImportPreferences());
+    Task SaveImageImportPreferencesAsync(string drawerId, ImageImportPreferences preferences, CancellationToken token = default)
+        => throw new NotSupportedException();
     Task<BoardViewport> GetViewportAsync(string drawerId, CancellationToken cancellationToken = default);
     Task SaveViewportAsync(BoardViewport viewport, CancellationToken cancellationToken = default);
     Task<string?> GetLatestAssetPathAsync(string drawerId, CancellationToken cancellationToken = default);

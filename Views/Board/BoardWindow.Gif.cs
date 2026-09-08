@@ -98,7 +98,12 @@ public partial class BoardWindow
             if (_gifLifetime.IsCancellationRequested) return;
             await Dispatcher.InvokeAsync(() =>
             {
+                if (!_gifBindings.TryGetValue(item.Id, out var current) || current != binding) return;
                 binding.Failed = true;
+                if (binding.Target.Parent is Grid grid)
+                    grid.Children.Add(new TextBlock { Text = "图片无法读取\n" + item.AssetPath,
+                        TextWrapping = TextWrapping.Wrap, Foreground = System.Windows.Media.Brushes.Gray,
+                        ToolTip = item.AssetPath, VerticalAlignment = VerticalAlignment.Center });
                 BoardStatus.Text = $"无法播放 GIF：{error.Message}";
                 UpdateGifToolbar();
             });

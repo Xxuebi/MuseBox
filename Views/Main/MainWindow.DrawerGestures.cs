@@ -143,8 +143,10 @@ public partial class MainWindow
             return action;
         }
         AddAction("打开画板", "\uE8E5", OnOpenDrawerBoardMenuClick);
+        AddAction("打开 .mubo 文件", "\uE8E5", OnOpenDrawerSceneFileClick);
         AddAction("保存", "\uE74E", OnSaveSceneClick);
         AddAction("另存为", "\uE792", OnSaveSceneAsClick);
+        AddAction("导入图像", "\uE8B5", OnImportDrawerImagesClick);
         AddAction("导出所有图像", "\uEDE1", OnExportAllImagesClick);
         var separator = new Border { Height = 1, Margin = new Thickness(8, 5, 8, 5) };
         separator.SetResourceReference(Border.BackgroundProperty, "ControlBorderBrush");

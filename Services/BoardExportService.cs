@@ -70,6 +70,8 @@ public static class BoardExportService
         IReadOnlySet<string>? selectedIds, string path, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
+        foreach (var image in snapshot.Document.Images.Where(i => selectedIds is null || selectedIds.Contains(i.Id)))
+            AssetPathResolver.ValidateReadableImage(snapshot.AssetPaths[image.AssetId]);
         var completion = new TaskCompletionSource<SceneThumbnailRenderer.CompositeRender>(TaskCreationOptions.RunContinuationsAsynchronously);
         var renderer = new Thread(() =>
         {

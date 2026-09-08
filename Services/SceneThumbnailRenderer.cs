@@ -14,8 +14,31 @@ public static class SceneThumbnailRenderer
     private const float CanvasPadding = 24;
     public sealed record CompositeRender(byte[] Png, int PixelWidth, int PixelHeight, bool WasScaledDown);
 
+    public static System.Windows.Rect GetBoardBounds(SceneSnapshot snapshot)
+    {
+        var elements = snapshot.Document.Images.Cast<BoardElement>().Concat(snapshot.Document.Texts).Concat(snapshot.Document.Drawings).ToArray();
+        var bounds = ContentBounds(elements, snapshot.Document.Groups, snapshot.Document.Viewport, false);
+        return new System.Windows.Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+    }
+
+    private static bool CanReadMaterial(string path)
+    {
+        try { AssetPathResolver.ValidateReadableImage(path); return true; }
+        catch (Exception error) when (error is IOException or ArgumentException or UnauthorizedAccessException or OutOfMemoryException) { return false; }
+    }
+
     public static byte[] Render(SceneSnapshot snapshot)
     {
+        if (snapshot.Document.Images.Count + snapshot.Document.Texts.Count + snapshot.Document.Drawings.Count == 0 && snapshot.Document.Materials.Count > 0)
+        {
+            var ordered = snapshot.Document.Materials.OrderByDescending(m => m.SortOrder).ToArray();
+            var material = ordered.FirstOrDefault(m => snapshot.AssetPaths.TryGetValue(m.AssetId, out var path) && CanReadMaterial(path)) ?? ordered[0];
+            var image = material.ToImage();
+            var asset = snapshot.Document.Assets.First(a => a.Id == material.AssetId);
+            image.Width = asset.Width; image.Height = asset.Height;
+            return Render(new SceneSnapshot(new SceneDocument { Name = snapshot.Document.Name,
+                Viewport = snapshot.Document.Viewport, Images = new() { image } }, snapshot.AssetPaths, snapshot.Revision));
+        }
         using var bitmap = new Bitmap(Edge, Edge, PixelFormat.Format32bppPArgb);
         bitmap.SetResolution(96, 96);
         using var graphics = Graphics.FromImage(bitmap);
@@ -241,7 +264,17 @@ public static class SceneThumbnailRenderer
 
     private static void DrawImage(Graphics graphics, BoardItem item, SceneSnapshot snapshot, BoardViewport viewport)
     {
-        if (!snapshot.AssetPaths.TryGetValue(item.AssetId, out var path) || !File.Exists(path)) return;
+        if (!snapshot.AssetPaths.TryGetValue(item.AssetId, out var path) || !File.Exists(path))
+        {
+            var missingState = BeginElement(graphics, item);
+            using var fill = new SolidBrush(DrawingColor.FromArgb(170, 115, 115, 115));
+            using var pen = new Pen(DrawingColor.LightGray, 2);
+            graphics.FillRectangle(fill, 0, 0, (float)item.Width, (float)item.Height);
+            graphics.DrawLine(pen, 0, 0, (float)item.Width, (float)item.Height);
+            graphics.DrawLine(pen, (float)item.Width, 0, 0, (float)item.Height);
+            graphics.Restore(missingState);
+            return;
+        }
         using Image source = GifAnimationService.IsGif(path) && snapshot.Document.Gifs.FirstOrDefault(state => state.ItemId == item.Id) is { } gif
             ? GifAnimationService.ExtractFrame(path, gif.FrameIndex) : Image.FromFile(path);
         var state = BeginElement(graphics, item);

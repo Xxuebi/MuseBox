@@ -7,6 +7,8 @@ public static class ImageFileFormatService
     private sealed record CachedFormat(long Length, long Modified, string? Extension);
     private static readonly ConcurrentDictionary<string, CachedFormat> Cache = new(StringComparer.OrdinalIgnoreCase);
 
+    public static void Invalidate(string path) => Cache.TryRemove(path, out _);
+
     public static string? FromHeader(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length >= 6 && (bytes[..6].SequenceEqual("GIF87a"u8) || bytes[..6].SequenceEqual("GIF89a"u8))) return ".gif";

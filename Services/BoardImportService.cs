@@ -16,12 +16,15 @@ public sealed class BoardImportService
 
     public async Task<IReadOnlyList<BoardItem>> ImportBitmapAsync(
         string drawerId, Bitmap bitmap, PointF? center = null, CancellationToken cancellationToken = default,
-        string? layerName = null)
+        string? layerName = null, ImageImportDestination destination = ImageImportDestination.Board)
     {
         var imported = await _assets.ImportBitmapAsync(bitmap, cancellationToken);
         return await AddAssetsAsync(drawerId, new[] { imported }, center, cancellationToken,
-            new[] { layerName ?? "剪贴板图片" });
+            new[] { layerName ?? "剪贴板图片" }, destination);
     }
+
+    public Task<ImportedAsset> StageInternalAssetAsync(string path, CancellationToken token = default)
+        => _assets.ImportFileAsync(path, token);
 
     // Editing creates a new immutable asset, leaving the old image available to undo.
     public Task<ImportedAsset> SaveEditedBitmapAsync(Bitmap bitmap) => _assets.ImportBitmapAsync(bitmap);
@@ -36,10 +39,10 @@ public sealed class BoardImportService
     }
 
     public async Task<IReadOnlyList<BoardItem>> ImportClipboardAsync(string drawerId, ClipboardImageResult clipboard,
-        PointF? center = null, CancellationToken cancellationToken = default)
+        PointF? center = null, CancellationToken cancellationToken = default, ImageImportDestination destination = ImageImportDestination.Board)
     {
         if (clipboard.FilePaths.Count > 0)
-            return await ImportFilesAsync(drawerId, clipboard.FilePaths, center, cancellationToken);
+            return await ImportFilesAsync(drawerId, clipboard.FilePaths, center, cancellationToken, destination: destination);
         var encoded = clipboard.EncodedImageBytes;
         if (encoded is null && clipboard.SourceGifUri is { } source)
         {
@@ -51,27 +54,34 @@ public sealed class BoardImportService
         {
             var asset = await _assets.ImportEncodedAsync(encoded, cancellationToken);
             return await AddAssetsAsync(drawerId, new[] { asset }, center, cancellationToken,
-                new[] { clipboard.SourceDescription });
+                new[] { clipboard.SourceDescription }, destination);
         }
         if (clipboard.Bitmap is not null) return await ImportBitmapAsync(drawerId, clipboard.Bitmap, center, cancellationToken,
-            clipboard.SourceDescription);
+            clipboard.SourceDescription, destination);
         throw new InvalidOperationException(clipboard.ErrorMessage ?? "剪贴板中没有可收集的图片。");
     }
 
     public async Task<IReadOnlyList<BoardItem>> ImportFilesAsync(
-        string drawerId, IEnumerable<string> files, PointF? center = null, CancellationToken cancellationToken = default)
+        string drawerId, IEnumerable<string> files, PointF? center = null, CancellationToken cancellationToken = default,
+        ImageImportMode mode = ImageImportMode.Copy, bool validateWholeBatch = false,
+        ImageImportDestination destination = ImageImportDestination.Board)
     {
+        var candidates = files.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        // Existing board/clipboard drops ignore non-images. Drawer batches are all-or-nothing.
+        var batch = validateWholeBatch || mode == ImageImportMode.Link ? candidates : candidates.Where(_assets.IsSupportedFile).ToArray();
+        foreach (var file in batch) AssetPathResolver.ValidateReadableImage(file);
         var imported = new List<ImportedAsset>();
-        foreach (var file in files.Where(_assets.IsSupportedFile))
-            imported.Add(await _assets.ImportFileAsync(file, cancellationToken));
+        foreach (var file in batch)
+            imported.Add(mode == ImageImportMode.Link ? await _assets.LinkFileAsync(file, cancellationToken)
+                : await _assets.ImportFileAsync(file, cancellationToken));
         if (imported.Count == 0) throw new InvalidOperationException("没有可导入的图片文件。");
         return await AddAssetsAsync(drawerId, imported, center, cancellationToken,
-            files.Where(_assets.IsSupportedFile).Select(file => Path.GetFileNameWithoutExtension(file)).ToArray());
+            batch.Select(file => Path.GetFileNameWithoutExtension(file)).ToArray(), destination);
     }
 
     private async Task<IReadOnlyList<BoardItem>> AddAssetsAsync(
         string drawerId, IReadOnlyList<ImportedAsset> assets, PointF? center, CancellationToken cancellationToken,
-        IReadOnlyList<string?>? layerNames = null)
+        IReadOnlyList<string?>? layerNames = null, ImageImportDestination destination = ImageImportDestination.Board)
     {
         var existing = await _repository.GetItemsAsync(drawerId, cancellationToken);
         var textItems = await _repository.GetTextItemsAsync(drawerId, cancellationToken);
@@ -100,7 +110,10 @@ public sealed class BoardImportService
                 item.LayerName = BoardLayerNameService.ClipboardName(item.LayerName, item.CreatedUtc);
             return item;
         }).ToArray();
-        await _repository.AddItemsAsync(result, cancellationToken);
-        return result;
+        if (destination == ImageImportDestination.Materials)
+            await _repository.AddMaterialsAsync(result.Select(i => new BoardMaterialItem { Id = i.Id, DrawerId = i.DrawerId,
+                AssetId = i.AssetId, AssetPath = i.AssetPath, LayerName = i.LayerName, CreatedUtc = i.CreatedUtc }).ToArray(), cancellationToken);
+        else await _repository.AddItemsAsync(result, cancellationToken);
+        return new ImageImportBatch(result, destination);
     }
 }

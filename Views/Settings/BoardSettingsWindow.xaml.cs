@@ -14,7 +14,9 @@ public partial class BoardSettingsWindow : Window
         string backgroundColor,
         double backgroundOpacity,
         bool opacityAffectsImages = false,
-        bool showWindowFrame = true)
+        bool showWindowFrame = true,
+        bool materialAreaEnabled = true,
+        bool askImageImportMode = true)
     {
         _selectedColor = NormalizeColor(backgroundColor);
         InitializeComponent();
@@ -22,6 +24,8 @@ public partial class BoardSettingsWindow : Window
         OpacitySlider.Value = Math.Clamp(backgroundOpacity, .1, 1) * 100;
         AffectImagesToggle.IsChecked = opacityAffectsImages;
         WindowFrameToggle.IsChecked = showWindowFrame;
+        MaterialAreaToggle.IsChecked = materialAreaEnabled;
+        ImageImportReminderCheck.IsChecked = askImageImportMode;
         RefreshOpacityText();
         RefreshCustomColorPreview();
         Loaded += (_, _) => RefreshPaletteSelection();
@@ -31,6 +35,8 @@ public partial class BoardSettingsWindow : Window
     public double BackgroundOpacity { get; private set; } = 1;
     public bool OpacityAffectsImages { get; private set; }
     public bool ShowWindowFrame { get; private set; } = true;
+    public bool MaterialAreaEnabled { get; private set; } = true;
+    public bool AskImageImportMode { get; private set; } = true;
 
     public event Action<string, double, bool>? PreviewChanged;
     public event Action<bool>? WindowFramePreviewChanged;
@@ -164,6 +170,8 @@ public partial class BoardSettingsWindow : Window
         BackgroundOpacity = OpacitySlider.Value / 100;
         OpacityAffectsImages = AffectImagesToggle.IsChecked == true;
         ShowWindowFrame = WindowFrameToggle.IsChecked == true;
+        MaterialAreaEnabled = MaterialAreaToggle.IsChecked == true;
+        AskImageImportMode = ImageImportReminderCheck.IsChecked == true;
         DialogResult = true;
     }
 

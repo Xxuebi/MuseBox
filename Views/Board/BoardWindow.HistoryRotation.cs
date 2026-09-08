@@ -26,7 +26,7 @@ public partial class BoardWindow
 
     private async Task NavigateHistoryAsync(bool redo)
     {
-        if (_historyBusy) return;
+        if (_historyBusy || _materialTransferBusy) return;
         _historyBusy = true;
         UpdateUndoButtons();
         try
@@ -37,11 +37,19 @@ public partial class BoardWindow
             var destination = redo ? _undo : _redo;
             if (source.Count == 0) { BoardStatus.Text = redo ? "没有可以重做的操作" : "没有可以撤回的操作"; return; }
             var current = Snapshot();
-            await RestoreSnapshotAsync(source.Peek());
+            if (source.Peek().MaterialDelta is { } materialChange)
+            {
+                await _repository.ApplyMaterialChangesAsync(new[] { materialChange });
+                current = current with { MaterialDelta = materialChange.Inverse() };
+                await ReloadAsync();
+            }
+            else await RestoreSnapshotAsync(source.Peek());
             source.Pop();
             destination.Push(current);
             TrimHistory(destination);
             BoardStatus.Text = redo ? "已重做一步撤回" : "已撤回上一步操作";
+            if (!_viewport.MaterialAreaEnabled && _materials.Count > 0)
+                BoardStatus.Text += "；素材已恢复，重新开启素材区可查看";
         }
         finally { _historyBusy = false; UpdateUndoButtons(); }
     }

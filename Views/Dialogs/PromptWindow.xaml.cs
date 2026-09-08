@@ -51,6 +51,18 @@ public partial class PromptWindow : Window
         };
     }
 
+    public static (int Choice, bool Remember) ChooseRemember(Window owner, string title, string message,
+        string primary, string alternative, string rememberLabel = "下次不提醒")
+    {
+        var dialog = new PromptWindow(title, message, primary) { Owner = owner, Width = 540 };
+        dialog.RememberChoice.Content = rememberLabel;
+        dialog.PromptAlternative.Content = alternative;
+        dialog.PromptAlternative.Visibility = Visibility.Visible;
+        dialog.RememberChoice.Visibility = Visibility.Visible;
+        var accepted = dialog.ShowDialog() == true;
+        return (dialog.AlternativeChosen ? 2 : accepted ? 1 : 0, dialog.RememberChoice.IsChecked == true);
+    }
+
     public static bool Confirm(Window owner, string title, string message, string confirmLabel)
         => new PromptWindow(title, message, confirmLabel) { Owner = owner }.ShowDialog() == true;
 

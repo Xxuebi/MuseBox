@@ -48,9 +48,29 @@ public sealed class AssetLibraryService
     public Task<ImportedAsset> ImportFileAsync(string path, CancellationToken cancellationToken = default) =>
         ImportFileCoreAsync(path, null, cancellationToken);
 
+    public async Task<ImportedAsset> LinkFileAsync(string path, CancellationToken token = default)
+    {
+        path = AssetPathResolver.NormalizeExternalPath(path);
+        await using var sourceLease = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        AssetPathResolver.ValidateReadableImage(path);
+        using var image = Image.FromFile(path);
+        var asset = new AssetRecord(Guid.NewGuid().ToString("N"), await SceneFileService.HashFileAsync(path, token),
+            ImageFileFormatService.FromFile(path)!, path, image.Width, image.Height, DateTime.UtcNow, AssetSourceKind.External);
+        await _repository.UpsertAssetAsync(asset, token);
+        var canonical = await _repository.FindAssetByHashAsync(AssetPathResolver.Identity(asset), token) ?? asset;
+        if (canonical.Hash != asset.Hash || canonical.PixelWidth != asset.PixelWidth || canonical.PixelHeight != asset.PixelHeight)
+        {
+            canonical = asset with { Id = canonical.Id, CreatedUtc = canonical.CreatedUtc };
+            await _repository.RefreshLinkedAssetAsync(canonical, token);
+        }
+        return new ImportedAsset(canonical, path);
+    }
+
     private async Task<ImportedAsset> ImportFileCoreAsync(
         string path, string? forcedExtension, CancellationToken cancellationToken)
     {
+        // Hold the source stable through hashing, validation and the internal copy.
+        await using var sourceLease = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (!IsSupportedFile(path) && forcedExtension is null)
             throw new InvalidOperationException($"不支持的图片格式：{Path.GetExtension(path)}");
 
@@ -62,7 +82,7 @@ public sealed class AssetLibraryService
 
         var existing = await _repository.FindAssetByHashAsync(hash, cancellationToken);
         if (existing is not null)
-            return new ImportedAsset(existing, Path.Combine(_paths.Assets, existing.FileName));
+            return new ImportedAsset(existing, AssetPathResolver.Resolve(_paths.Assets, existing));
 
         int width;
         int height;
@@ -94,6 +114,6 @@ public sealed class AssetLibraryService
             Guid.NewGuid().ToString("N"), hash, extension, fileName, width, height, DateTime.UtcNow);
         await _repository.UpsertAssetAsync(asset, cancellationToken);
         var canonical = await _repository.FindAssetByHashAsync(hash, cancellationToken) ?? asset;
-        return new ImportedAsset(canonical, Path.Combine(_paths.Assets, canonical.FileName));
+        return new ImportedAsset(canonical, AssetPathResolver.Resolve(_paths.Assets, canonical));
     }
 }

@@ -90,7 +90,7 @@ internal static partial class Program
                 var manifest = reader.ReadToEnd();
                 True(!manifest.Contains(root.Replace("\\", "\\\\")), "场景包含机器专用图片路径");
                 using var manifestDocument = JsonDocument.Parse(manifest);
-                Equal(2, manifestDocument.RootElement.GetProperty(nameof(SceneDocument.Version)).GetInt32());
+                Equal(4, manifestDocument.RootElement.GetProperty(nameof(SceneDocument.Version)).GetInt32());
                 Equal(1, manifestDocument.RootElement.GetProperty(nameof(SceneDocument.Groups)).GetArrayLength());
                 var thumbnailBytes = Convert.FromBase64String(
                     manifestDocument.RootElement.GetProperty(nameof(SceneDocument.ThumbnailPng)).GetString()!);

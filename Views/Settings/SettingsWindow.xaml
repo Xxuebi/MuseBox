@@ -8,25 +8,30 @@
         Foreground="{DynamicResource TextBrush}">
     <Window.Resources>
         <Style x:Key="SideTabItem" TargetType="TabItem">
-            <Setter Property="Width" Value="168" />
+            <Setter Property="Width" Value="178" />
+            <Setter Property="Height" Value="46" />
             <Setter Property="Margin" Value="0,0,0,8" />
-            <Setter Property="Padding" Value="13,12" />
+            <Setter Property="Padding" Value="12,0" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="Chrome" Background="{DynamicResource SubtleBrush}" CornerRadius="8">
+                        <Border x:Name="Chrome" Background="Transparent" CornerRadius="10"
+                                Cursor="Hand" SnapsToDevicePixels="True">
                             <ContentPresenter ContentSource="Header"
-                                              Margin="{TemplateBinding Padding}" />
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+                            <Trigger SourceName="Chrome" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Chrome" Property="Background" Value="#280067C0" />
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -116,99 +121,60 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TabControl x:Name="SettingsCategories" Grid.Row="2" TabStripPlacement="Left"
+        <TabControl x:Name="SettingsCategories" Grid.Row="2" TabStripPlacement="Left" SelectionChanged="OnSettingsCategoryChanged"
                     Background="Transparent" BorderThickness="0"
+                    FocusVisualStyle="{x:Null}"
                     Foreground="{DynamicResource TextBrush}">
             <TabControl.Resources>
                 <Style TargetType="TabItem" BasedOn="{StaticResource SideTabItem}" />
             </TabControl.Resources>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Width="26" FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE774;" />
-                        <TextBlock Text="常规" />
-                    </StackPanel>
-                </TabItem.Header>
+            <TabControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel />
+                </ItemsPanelTemplate>
+            </TabControl.ItemsPanel>
+            <TabControl.Template>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ItemsPresenter Margin="0,0,12,0"
+                                        KeyboardNavigation.TabNavigation="Once" />
+                        <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Column="1"
+                                          ContentSource="SelectedContent" />
+                    </Grid>
+                </ControlTemplate>
+            </TabControl.Template>
+            <TabItem x:Name="GeneralSettingsTab">
+                <TabItem.Header><StackPanel Orientation="Horizontal">
+                    <TextBlock Width="26" FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE774;" />
+                    <TextBlock Text="常规" />
+                </StackPanel></TabItem.Header>
                 <ScrollViewer Margin="18,0,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel VerticalAlignment="Top">
-                    <Border Padding="18"
-                            Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}"
-                            BorderThickness="1" CornerRadius="10">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="小窗默认置顶" />
-                                <TextBlock Margin="0,5,10,0" FontSize="12" TextWrapping="Wrap"
-                                           Foreground="{StaticResource MutedTextBrush}"
-                                           Text="可随时用主窗口右上角的图钉切换" />
-                            </StackPanel>
-                            <ToggleButton x:Name="MainTopmostToggle" Grid.Column="1"
-                                          VerticalAlignment="Center"
-                                          Style="{StaticResource SwitchStyle}" />
-                        </Grid>
-                    </Border>
-                    <Border Margin="0,10,0,0" Padding="18" Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="10">
-                        <Grid>
+                    <Border Padding="16,6" VerticalAlignment="Top" Background="{DynamicResource CardBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="10">
+                        <StackPanel>
+                        <Grid Height="44" Background="Transparent" ToolTip="关闭后，小窗卡片只显示抽屉名称；不改变抽屉编号">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="显示抽屉字母标识" />
-                                <TextBlock Margin="0,5,10,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
-                                           TextWrapping="Wrap" Text="关闭后，小窗卡片只显示抽屉名称；不改变抽屉编号" />
-                            </StackPanel>
+                            <TextBlock Text="显示抽屉字母标识" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <ToggleButton x:Name="ShowDrawerLettersToggle" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource SwitchStyle}" />
                         </Grid>
-                    </Border>
-                    <Border Margin="0,10,0,0" Padding="18" Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="10">
-                        <Grid>
+                        <Border Height="1" Background="{DynamicResource ControlBorderBrush}" />
+                        <Grid Height="44" Background="Transparent" ToolTip="开启后，截图按钮和快捷键调用 Windows 截图；关闭使用内置框选">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="使用系统自带截图" />
-                                <TextBlock Margin="0,5,10,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
-                                           TextWrapping="Wrap" Text="开启后，截图按钮和快捷键调用 Windows 截图；关闭使用内置框选" />
-                            </StackPanel>
+                            <TextBlock Text="使用系统自带截图" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <ToggleButton x:Name="UseSystemScreenshotToggle" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource SwitchStyle}" />
                         </Grid>
-                    </Border>
-                    <Border Margin="0,10,0,0" Padding="18"
-                            Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}"
-                            BorderThickness="1" CornerRadius="10">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="兼容渲染模式" />
-                                <TextBlock Margin="0,5,10,0" FontSize="12" TextWrapping="Wrap"
-                                           Foreground="{StaticResource MutedTextBrush}"
-                                           Text="在系统高负载或硬件加速不稳定时，使用更稳定的绘制方式" />
-                            </StackPanel>
-                            <ToggleButton x:Name="CompatibleRenderingToggle" Grid.Column="1"
-                                          VerticalAlignment="Center"
-                                          Style="{StaticResource SwitchStyle}" />
+                        <Border Height="1" Background="{DynamicResource ControlBorderBrush}" />
+                        <Grid Height="44" Background="Transparent" ToolTip="在系统高负载或硬件加速不稳定时，使用更稳定的绘制方式">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="兼容渲染模式" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <ToggleButton x:Name="CompatibleRenderingToggle" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource SwitchStyle}" />
                         </Grid>
+                        </StackPanel>
                     </Border>
-                    <Border Margin="0,10,0,0" Padding="18" Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1" CornerRadius="10">
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /></Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="撤回步骤上限" />
-                                <TextBlock Margin="0,5,8,0" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}"
-                                           Text="每个画板保留 1–500 步；默认 100 步，越多越占内存" />
-                            </StackPanel>
-                            <TextBox x:Name="UndoStepLimitInput" Grid.Column="1" Height="32" VerticalAlignment="Center"
-                                     Style="{StaticResource CompactShortcutInput}" ToolTip="输入 1–500 的整数" />
-                        </Grid>
-                    </Border>
-                    </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
@@ -256,9 +222,6 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="应用语言" />
-                                    <TextBlock Margin="0,5,12,0" FontSize="12" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource MutedTextBrush}"
-                                               Text="目前仅提供简体中文" />
                                 </StackPanel>
                                 <Border Grid.Column="1" MinHeight="38" Padding="12,0"
                                         VerticalAlignment="Center"
@@ -342,34 +305,56 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Width="26" FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE74E;" />
-                        <TextBlock Text="保存和加载" />
-                    </StackPanel>
-                </TabItem.Header>
-                <Grid Margin="18,0,0,0">
-                    <Border VerticalAlignment="Top" Padding="18"
-                            Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}"
-                            BorderThickness="1" CornerRadius="10">
-                        <StackPanel>
-                            <TextBlock FontSize="16" FontWeight="SemiBold" Text="画板保存路径" />
-                            <TextBlock Margin="0,5,0,14" FontSize="12"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="更改后重启生效；切换到空目录时会迁移现有画板" />
-                            <TextBox x:Name="StoragePathTextBox" MinHeight="38" Padding="9,0"
-                                     VerticalContentAlignment="Center" />
-                            <StackPanel Margin="0,12,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button MinWidth="72" Margin="0,0,8,0" Style="{StaticResource ModernButton}"
-                                        Content="默认" Click="OnDefaultStorageClick" />
-                                <Button MinWidth="72" Style="{StaticResource AccentButton}"
-                                        Content="浏览…" Click="OnBrowseStorageClick" />
+            <TabItem x:Name="SaveLoadSettingsTab">
+                <TabItem.Header><StackPanel Orientation="Horizontal">
+                    <TextBlock Width="26" FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE74E;" />
+                    <TextBlock Text="保存和加载" />
+                </StackPanel></TabItem.Header>
+                <ScrollViewer Margin="18,0,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Border Padding="16,12" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="10">
+                            <StackPanel>
+                                <TextBlock x:Name="StorageHeading" Text="画板保存路径" FontSize="14" FontWeight="SemiBold"
+                                           Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.IsTabStop="False"
+                                           ToolTip="更改后重启生效；切换到空目录时会迁移现有画板" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="StoragePathTextBox" MinHeight="32" Padding="9,0" VerticalContentAlignment="Center"
+                                             Style="{StaticResource CompactShortcutInput}" />
+                                    <Button Grid.Column="1" Margin="8,0,0,0" MinWidth="56" Padding="8,4" Style="{StaticResource ModernButton}" Content="默认" Click="OnDefaultStorageClick" />
+                                    <Button Grid.Column="2" Margin="6,0,0,0" MinWidth="56" Padding="8,4" Style="{StaticResource ModernButton}" Content="浏览…" Click="OnBrowseStorageClick" />
+                                </Grid>
                             </StackPanel>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                        </Border>
+                        <Border Margin="0,8,0,0" Padding="16,6" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="10">
+                            <StackPanel>
+                                <Grid Height="44" Background="Transparent" ToolTip="定时保存已绑定场景文件的修改；未保存过的画板不会自动创建文件">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="自动保存" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <ToggleButton x:Name="AutoSaveToggle" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource SwitchStyle}"
+                                                  Checked="OnAutoSaveToggleChanged" Unchecked="OnAutoSaveToggleChanged" />
+                                </Grid>
+                                <Border Height="1" Background="{DynamicResource ControlBorderBrush}" />
+                                <Grid x:Name="AutoSaveIntervalRow" Height="44" Background="Transparent" ToolTip="自动保存间隔，可设置 1–120 分钟" ToolTipService.ShowOnDisabled="True">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="自动保存间隔" FontSize="14" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBox x:Name="AutoSaveIntervalInput" Width="64" Height="30" TextAlignment="Center" Style="{StaticResource CompactShortcutInput}" ToolTip="输入 1–120 的整数" />
+                                        <TextBlock Text="分钟" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                                <Border Height="1" Background="{DynamicResource ControlBorderBrush}" />
+                                <Grid Height="44" Background="Transparent" ToolTip="每个画板保留 1–500 步；默认 100 步，越多越占内存">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="撤回步骤上限" FontSize="14" VerticalAlignment="Center" />
+                                    <TextBox x:Name="UndoStepLimitInput" Grid.Column="1" Width="88" Height="30" VerticalAlignment="Center"
+                                             TextAlignment="Center" Style="{StaticResource CompactShortcutInput}" ToolTip="输入 1–500 的整数" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem x:Name="ShortcutSettingsTab">
@@ -525,29 +510,72 @@
                         <TextBlock Text="关于" />
                     </StackPanel>
                 </TabItem.Header>
-                <Grid Margin="18,0,0,0">
+                <ScrollViewer Margin="18,0,0,0" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
                     <Border VerticalAlignment="Top" Padding="22"
                             Background="{DynamicResource CardBrush}"
-                            BorderBrush="{StaticResource ControlBorderBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
                             BorderThickness="1" CornerRadius="10">
-                        <StackPanel HorizontalAlignment="Center">
-                            <Image x:Name="AboutAppIcon" Width="64" Height="64"
-                                   Source="/MuseBox;component/Assets/app-icon.ico" Stretch="Uniform" />
-                            <TextBlock x:Name="AboutProductName" Margin="0,14,0,0" HorizontalAlignment="Center"
-                                       FontSize="20" FontWeight="SemiBold" Text="MuseBox" />
-                            <TextBlock x:Name="AboutChineseSubtitle" Margin="0,3,0,0" HorizontalAlignment="Center"
-                                       FontSize="12" Foreground="{StaticResource MutedTextBrush}" Text="灵感收集器" />
-                            <TextBlock x:Name="AppVersionText" Margin="0,5,0,0"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{StaticResource MutedTextBrush}" />
-                            <Border Height="1" Width="260" Margin="0,18"
-                                    Background="{DynamicResource ControlBorderBrush}" />
-                            <TextBlock HorizontalAlignment="Center" TextAlignment="Center"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="离线图片收集与自由画板工具&#x0a;数据仅保存在本地设备" />
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Image x:Name="AboutAppIcon" Width="64" Height="64" Margin="0,0,16,0"
+                                       Source="/MuseBox;component/Assets/app-icon.ico" Stretch="Uniform" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="AboutProductName" FontSize="20"
+                                               FontWeight="SemiBold" Text="MuseBox" />
+                                    <TextBlock x:Name="AboutChineseSubtitle" Margin="0,3,0,0"
+                                               FontSize="12" Foreground="{DynamicResource MutedTextBrush}" Text="灵感收集器" />
+                                    <TextBlock x:Name="AppVersionText" Margin="0,5,0,0" FontSize="12"
+                                               Foreground="{DynamicResource MutedTextBrush}" />
+                                </StackPanel>
+                            </Grid>
+                            <Border Height="1" Margin="0,18" Background="{DynamicResource ControlBorderBrush}" />
+                            <TextBlock FontSize="14" FontWeight="SemiBold" Text="收集素材，整理灵感" />
+                            <TextBlock Margin="0,7,0,0" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedTextBrush}"
+                                       Text="接收截图、剪贴板和本地图片，在自由画板中添加文字与绘制，通过组合和图层整理素材。" />
+                            <TextBlock Margin="0,7,0,0" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedTextBrush}"
+                                       Text="支持 GIF、图片编辑、排列与网格吸附；使用 .mubo 保存可继续编辑的场景，或批量导出图片与合成 PNG。" />
+                            <Border Height="1" Margin="0,16" Background="{DynamicResource ControlBorderBrush}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70" /><ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock FontSize="12" Foreground="{DynamicResource MutedTextBrush}" Text="开发者" />
+                                <TextBlock Grid.Column="1" FontSize="12" Text="Xxuebi" />
+                                <TextBlock Grid.Row="1" Margin="0,8,0,0" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" Text="许可证" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,8,0,0" FontSize="12" Text="MIT · 开源软件" />
+                                <TextBlock Grid.Row="2" Margin="0,8,0,0" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" Text="运行环境" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,8,0,0" FontSize="12"
+                                           TextWrapping="Wrap" Text="Windows 10 / 11 · .NET 8 Desktop Runtime" />
+                            </Grid>
+                            <TextBlock Margin="0,12,0,0" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedTextBrush}"
+                                       Text="素材、设置和画板数据保存在本机；MuseBox 不会主动上传你的素材。" />
+                            <Border Height="1" Margin="0,16" Background="{DynamicResource ControlBorderBrush}" />
+                            <Button x:Name="AboutGitHubButton" Style="{StaticResource ModernButton}"
+                                    Tag="project" Click="OnAboutLinkClick"
+                                    ToolTip="在浏览器中打开 GitHub 项目主页"
+                                    Content="GitHub · Xxuebi / MuseBox" />
+                            <UniformGrid Columns="2" Margin="0,8,0,0">
+                                <Button Style="{StaticResource ModernButton}" Margin="0,0,4,0"
+                                        Tag="releases" Click="OnAboutLinkClick" Content="下载便携版" />
+                                <Button Style="{StaticResource ModernButton}" Margin="4,0,0,0"
+                                        Tag="issues" Click="OnAboutLinkClick" Content="问题反馈" />
+                            </UniformGrid>
+                            <TextBlock Margin="0,12,0,0" FontSize="11" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource MutedTextBrush}" Text="© 2026 Xxuebi" />
                         </StackPanel>
                     </Border>
-                </Grid>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

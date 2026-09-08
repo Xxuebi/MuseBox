@@ -23,7 +23,10 @@ internal static partial class Program
         board.Loaded -= (RoutedEventHandler)Delegate.CreateDelegate(typeof(RoutedEventHandler), board,
             typeof(BoardWindow).GetMethod("OnLoaded", PrivateInstance | BindingFlags.DeclaredOnly)!);
         var imports = (BoardImportService)typeof(BoardWindow).GetField("_importService", PrivateInstance)!.GetValue(board)!;
-        var window = new MainWindow(repository, imports);
+        var window = new MainWindow(repository, imports, new TestSceneDialogs { FallbackChoice = 1 });
+        ((AppSettings)typeof(MainWindow).GetField("_settings", PrivateInstance)!.GetValue(window)!).MaterialAreaEnabled = false;
+        foreach (var drawer in repository.GetDrawersAsync().GetAwaiter().GetResult())
+            repository.SetMaterialAreaEnabledAsync(drawer.Id, false).GetAwaiter().GetResult();
         window.Loaded -= (RoutedEventHandler)Delegate.CreateDelegate(typeof(RoutedEventHandler), window,
             typeof(MainWindow).GetMethod("OnLoaded", PrivateInstance | BindingFlags.DeclaredOnly)!);
         window.Closing -= (CancelEventHandler)Delegate.CreateDelegate(typeof(CancelEventHandler), window,
@@ -37,7 +40,7 @@ internal static partial class Program
     });
 
     private static object? MainCall(MainWindow window, string method, params object[] args) =>
-        typeof(MainWindow).GetMethod(method, PrivateInstance)!.Invoke(window, args);
+        typeof(MainWindow).GetMethod(method, PrivateInstance | BindingFlags.Public)!.Invoke(window, args);
 
     private static void AwaitMainTask(MainWindow window, string method, params object[] args)
     {
@@ -191,7 +194,9 @@ internal static partial class Program
         var source = Path.Combine(directory, "new-drawer-test.png");
         using (var bitmap = CreateBitmap()) bitmap.Save(source, System.Drawing.Imaging.ImageFormat.Png);
         AwaitMainTask(window, "ImportFilesAsync", added.Id, new[] { source });
-        Equal(1, repository.GetItemsAsync(added.Id).GetAwaiter().GetResult().Count);
+        Equal(0, repository.GetItemsAsync(added.Id).GetAwaiter().GetResult().Count);
+        Equal(1, repository.GetMaterialsAsync(added.Id).GetAwaiter().GetResult().Count);
+        True(repository.GetViewportAsync(added.Id).GetAwaiter().GetResult().MaterialAreaEnabled, "新画板未默认开启素材区");
         True(added.Thumbnail is not null, "新抽屉置入图片后未更新预览");
         True(((ItemsControl)window.FindName("DrawerList")).IsEnabled, "置入期间禁用了整个列表");
         AwaitMainTask(window, "ReloadDrawersAsync");

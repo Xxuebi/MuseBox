@@ -58,12 +58,17 @@ public static class SceneFileService
             SceneMigration.UpgradeToCurrent(document);
             ValidateThumbnail(document.ThumbnailPng);
             SceneValidation.Validate(document);
-            var allowed = document.Assets.Select(AssetEntry).Append("scene.json").ToHashSet(StringComparer.Ordinal);
+            var allowed = document.Assets.Where(a => a.SourceKind == AssetSourceKind.Internal).Select(AssetEntry).Append("scene.json").ToHashSet(StringComparer.Ordinal);
             if (!allowed.SetEquals(zip.Entries.Select(e => e.FullName))) throw new InvalidDataException("场景包含非法路径、多余文件或缺少图片。");
             var paths = new Dictionary<string, string>();
             foreach (var asset in document.Assets)
             {
                 token.ThrowIfCancellationRequested();
+                if (asset.SourceKind == AssetSourceKind.External)
+                {
+                    paths.Add(asset.Id, AssetPathResolver.NormalizeExternalPath(asset.ExternalPath));
+                    continue;
+                }
                 var entry = zip.GetEntry(AssetEntry(asset))!;
                 // Only generated, validated hash names reach the filesystem.
                 var outputPath = Path.Combine(directory, asset.Hash + asset.Extension);
@@ -103,7 +108,7 @@ public static class SceneFileService
                     await using (var manifest = zip.CreateEntry("scene.json", CompressionLevel.Optimal).Open())
                         await JsonSerializer.SerializeAsync(manifest, snapshot.Document, cancellationToken: token);
                     long total = 0;
-                    foreach (var asset in snapshot.Document.Assets)
+                    foreach (var asset in snapshot.Document.Assets.Where(a => a.SourceKind == AssetSourceKind.Internal))
                     {
                         token.ThrowIfCancellationRequested();
                         var sourcePath = snapshot.AssetPaths[asset.Id];
@@ -120,7 +125,7 @@ public static class SceneFileService
             }
             // Verify central-directory completeness before publishing the new file.
             using (var check = ZipFile.OpenRead(temporary))
-                if (check.Entries.Count != snapshot.Document.Assets.Count + 1 ||
+                if (check.Entries.Count != snapshot.Document.Assets.Count(a => a.SourceKind == AssetSourceKind.Internal) + 1 ||
                     check.GetEntry("scene.json")!.Length > MaxManifestBytes)
                     throw new InvalidDataException("场景写入验证失败。");
             var hash = await HashFileAsync(temporary, token);
